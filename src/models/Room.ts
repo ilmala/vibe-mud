@@ -8,4 +8,18 @@ export interface Room {
     east?: string;
     west?: string;
   };
+  interactables?: {
+    [key: string]: {
+      description: string;
+      triggerId: string;
+      command?: string; // Required command to interact (e.g., 'tira', 'premi', 'apri')
+    };
+  };
+  hiddenExits?: {
+    [direction: string]: {
+      roomId: string;
+      requiredTrigger: string;
+      revealMessage?: string;
+    };
+  };
 }

@@ -151,6 +151,14 @@ function setupPlayerListeners(socket: any, player: Player): void {
 
       // Notify players in new room
       socket.to(newRoomId).emit('message', `\n[${player.name} è entrato nella stanza]`);
+    } else if (result.type === 'interact') {
+      // Notify player of their action
+      socket.emit('message', `\n${result.message}`);
+
+      // If a trigger was activated, notify all players in the room
+      if (result.triggerActivated?.globalMessage) {
+        io.to(player.roomId).emit('message', `\n🔧 ${result.triggerActivated.globalMessage}`);
+      }
     } else if (result.type === 'look') {
       socket.emit('message', `\n${result.message}`);
     } else if (result.type === 'help') {

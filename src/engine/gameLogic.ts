@@ -18,6 +18,7 @@ export function handleCommand(
     playerName,
     currentRoomId,
     otherPlayersInRoom,
+    command: command.cmd, // Pass the actual command used
   };
   return registry.execute(command.cmd, command.arg, context);
 }
