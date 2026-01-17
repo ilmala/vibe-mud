@@ -1,0 +1,1 @@
+{"version":3,"file":"MoveCommand.d.ts","sourceRoot":"","sources":["../../../../src/engine/commands/movement/MoveCommand.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,cAAc,EAAE,cAAc,EAAE,aAAa,EAAE,MAAM,mBAAmB,CAAC;AAelF,qBAAa,WAAY,YAAW,cAAc;IAChD,IAAI,SAAS;IACb,WAAW,UAAQ;IACnB,WAAW,SAA2C;IACtD,KAAK,SAAqB;IAE1B,OAAO,CAAC,GAAG,EAAE,MAAM,EAAE,OAAO,EAAE,cAAc,GAAG,aAAa;CAuC7D"}

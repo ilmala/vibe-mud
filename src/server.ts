@@ -1,0 +1,179 @@
+import express from 'express';
+import { Server } from 'socket.io';
+import { createServer } from 'http';
+import { Player, Room } from './models';
+import { STARTING_ROOM } from './data/world';
+import { parseCommand } from './engine/parser';
+import { handleCommand } from './engine/gameLogic';
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
+
+const PORT = process.env.PORT || 3000;
+
+// Store active players
+const players: Map<string, Player> = new Map();
+
+const MOTD = `
+╔════════════════════════════════════╗
+║   Benvenuto a Nebula MUD           ║
+╚════════════════════════════════════╝
+
+Un mondo di avventure ti aspetta...
+`;
+
+io.on('connection', (socket) => {
+  console.log(`[${socket.id}] Un giocatore si è connesso`);
+
+  // Create new player with temporary name
+  const player: Player = {
+    id: socket.id,
+    name: 'Anonimo',
+    roomId: STARTING_ROOM,
+    socketId: socket.id,
+  };
+
+  players.set(socket.id, player);
+
+  // Send MOTD
+  socket.emit('message', MOTD);
+
+  // Request player name
+  socket.emit('requestName');
+
+  // Listen for name from client
+  socket.once('setName', (playerName: string) => {
+    const trimmedName = playerName.trim().slice(0, 20);
+
+    if (!trimmedName) {
+      socket.emit('message', '❌ Il nome non può essere vuoto.');
+      socket.emit('requestName');
+      return;
+    }
+
+    // Update player name
+    player.name = trimmedName;
+    console.log(`[${socket.id}] Ha scelto il nome: ${player.name}`);
+
+    // Join Socket.io room corresponding to the game room
+    socket.join(STARTING_ROOM);
+
+    // Send welcome message with player name
+    socket.emit('message', `\nBenvenuto ${player.name}!\n`);
+
+    // Show starting room with exits
+    const otherPlayersInStarting = Array.from(players.values())
+      .filter((p) => p.roomId === STARTING_ROOM && p.id !== player.id)
+      .map((p) => p.name);
+    const lookResult = handleCommand(
+      parseCommand('guarda'),
+      STARTING_ROOM,
+      player.id,
+      player.name,
+      otherPlayersInStarting
+    );
+    socket.emit('message', `${lookResult.message}`);
+
+    // Notify others that a player joined
+    socket.to(STARTING_ROOM).emit('message', `\n[${player.name} è entrato nella stanza]`);
+
+    // Setup command and chat listeners
+    setupPlayerListeners(socket, player);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    const player = players.get(socket.id);
+    if (player) {
+      console.log(`[${socket.id}] ${player.name} si è disconnesso`);
+      io.to(player.roomId).emit('message', `\n[${player.name} se ne è andato]`);
+      players.delete(socket.id);
+    }
+  });
+});
+
+function setupPlayerListeners(socket: any, player: Player): void {
+  // Handle player commands
+  socket.on('command', (input: string) => {
+    console.log(`[${player.name}] Command: ${input}`);
+
+    const command = parseCommand(input);
+
+    // Raccolgo i giocatori nella stanza attuale
+    const otherPlayers = Array.from(players.values())
+      .filter((p) => p.roomId === player.roomId && p.id !== player.id)
+      .map((p) => p.name);
+
+    const result = handleCommand(
+      command,
+      player.roomId,
+      player.id,
+      player.name,
+      otherPlayers
+    );
+
+    if (result.type === 'move' && result.newRoomId) {
+      const oldRoomId = player.roomId;
+      const newRoomId = result.newRoomId;
+
+      // Notify players in old room
+      io.to(oldRoomId).emit('message', `\n[${player.name} se ne è andato]`);
+
+      // Move player to new Socket.io room
+      socket.leave(oldRoomId);
+      socket.join(newRoomId);
+
+      // Update player's room
+      player.roomId = newRoomId;
+
+      // Raccolgo i giocatori nella nuova stanza
+      const otherPlayersInNewRoom = Array.from(players.values())
+        .filter((p) => p.roomId === newRoomId && p.id !== player.id)
+        .map((p) => p.name);
+
+      // Get full description with other players
+      const descriptionResult = handleCommand(
+        parseCommand('guarda'),
+        newRoomId,
+        player.id,
+        player.name,
+        otherPlayersInNewRoom
+      );
+
+      // Send new room description to player
+      socket.emit('message', `\nSei entrato in:\n\n${descriptionResult.message}`);
+
+      // Notify players in new room
+      socket.to(newRoomId).emit('message', `\n[${player.name} è entrato nella stanza]`);
+    } else if (result.type === 'look') {
+      socket.emit('message', `\n${result.message}`);
+    } else if (result.type === 'help') {
+      socket.emit('message', `\n${result.message}`);
+    } else if (result.type === 'say' && result.message) {
+      const fullMessage = `${player.name} dice: "${result.message}"`;
+      io.to(player.roomId).emit('message', `\n${fullMessage}`);
+      console.log(`[${player.name}] Say: ${result.message}`);
+    } else if (result.type === 'error') {
+      socket.emit('message', `\n❌ ${result.message}`);
+    } else {
+      socket.emit('message', `\n❌ Comando sconosciuto.`);
+    }
+  });
+
+  // Handle chat messages
+  socket.on('say', (message: string) => {
+    const fullMessage = `${player.name} dice: "${message}"`;
+    io.to(player.roomId).emit('message', `\n${fullMessage}`);
+    console.log(`[${player.name}] Say: ${message}`);
+  });
+}
+
+httpServer.listen(PORT, () => {
+  console.log(`🎮 Server MUD in ascolto su http://localhost:${PORT}`);
+});
