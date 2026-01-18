@@ -24,6 +24,8 @@ function getOppositeDirection(direction: string): string {
     sud: 'nord',
     est: 'ovest',
     ovest: 'est',
+    su: 'giu',
+    giu: 'su',
   };
   return opposites[direction.toLowerCase()] || direction;
 }

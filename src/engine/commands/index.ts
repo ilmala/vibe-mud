@@ -12,12 +12,14 @@ import { HelpCommand } from './system';
 export function initializeCommands(): CommandRegistry {
   const registry = new CommandRegistry();
 
-  // Create direction commands for all four directions
+  // Create direction commands for all six directions
   const directions = [
     { italian: 'nord', english: 'north' },
     { italian: 'sud', english: 'south' },
     { italian: 'est', english: 'east' },
     { italian: 'ovest', english: 'west' },
+    { italian: 'su', english: 'up' },
+    { italian: 'giu', english: 'down' },
   ];
 
   const directionalHandlers = directions.map(

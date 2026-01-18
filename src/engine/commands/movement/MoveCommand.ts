@@ -13,6 +13,10 @@ const DIRECTION_MAP: Record<string, string> = {
   east: 'east',
   ovest: 'west',
   west: 'west',
+  su: 'up',
+  up: 'up',
+  giu: 'down',
+  down: 'down',
 };
 
 const ENGLISH_TO_ITALIAN: Record<string, string> = {
@@ -20,6 +24,8 @@ const ENGLISH_TO_ITALIAN: Record<string, string> = {
   south: 'sud',
   east: 'est',
   west: 'ovest',
+  up: 'su',
+  down: 'giu',
 };
 
 export class MoveCommand implements CommandHandler {

@@ -13,6 +13,10 @@ const DIRECTION_MAP: Record<string, string> = {
   east: 'east',
   ovest: 'west',
   west: 'west',
+  su: 'up',
+  up: 'up',
+  giu: 'down',
+  down: 'down',
 };
 
 export class DirectionCommand implements CommandHandler {

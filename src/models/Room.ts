@@ -7,6 +7,8 @@ export interface Room {
     south?: string;
     east?: string;
     west?: string;
+    up?: string;
+    down?: string;
   };
   interactables?: {
     [key: string]: {
@@ -48,6 +50,22 @@ export interface Room {
       closeMessage?: string;
     };
     west?: {
+      initialState: 'open' | 'closed' | 'locked';
+      keyId?: string;
+      name?: string;
+      description?: string;
+      openMessage?: string;
+      closeMessage?: string;
+    };
+    up?: {
+      initialState: 'open' | 'closed' | 'locked';
+      keyId?: string;
+      name?: string;
+      description?: string;
+      openMessage?: string;
+      closeMessage?: string;
+    };
+    down?: {
       initialState: 'open' | 'closed' | 'locked';
       keyId?: string;
       name?: string;
