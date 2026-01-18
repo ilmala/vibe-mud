@@ -17,6 +17,17 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3000;
 
+// Helper function to get opposite direction
+function getOppositeDirection(direction: string): string {
+  const opposites: Record<string, string> = {
+    nord: 'sud',
+    sud: 'nord',
+    est: 'ovest',
+    ovest: 'est',
+  };
+  return opposites[direction.toLowerCase()] || direction;
+}
+
 // Store active players
 const players: Map<string, Player> = new Map();
 
@@ -124,9 +135,14 @@ function setupPlayerListeners(socket: any, player: Player): void {
     if (result.type === 'move' && result.newRoomId) {
       const oldRoomId = player.roomId;
       const newRoomId = result.newRoomId;
+      const direction = result.direction;
 
-      // Notify players in old room
-      io.to(oldRoomId).emit('message', `\n[${player.name} se ne è andato]`);
+      // Notify other players in old room (not the player who is leaving)
+      if (direction) {
+        socket.to(oldRoomId).emit('message', `\n[${player.name} è andato a ${direction}]`);
+      } else {
+        socket.to(oldRoomId).emit('message', `\n[${player.name} se ne è andato]`);
+      }
 
       // Move player to new Socket.io room
       socket.leave(oldRoomId);
@@ -154,7 +170,12 @@ function setupPlayerListeners(socket: any, player: Player): void {
       socket.emit('message', `\nSei entrato in:\n\n${descriptionResult.message}`);
 
       // Notify players in new room
-      socket.to(newRoomId).emit('message', `\n[${player.name} è entrato nella stanza]`);
+      if (direction) {
+        const oppositeDirection = getOppositeDirection(direction);
+        socket.to(newRoomId).emit('message', `\n[${player.name} è arrivato da ${oppositeDirection}]`);
+      } else {
+        socket.to(newRoomId).emit('message', `\n[${player.name} è entrato nella stanza]`);
+      }
     } else if (result.type === 'interact') {
       // Notify player of their action
       socket.emit('message', `\n${result.message}`);

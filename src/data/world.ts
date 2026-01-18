@@ -53,7 +53,7 @@ export const ROOMS: Room[] = [
         revealMessage: 'La leva scatta e il muro a est si ritrae! Un passaggio segreto si apre verso est!',
       },
     },
-    items: ['550e8400-e29b-41d4-a716-446655440004'],
+    items: ['550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440001'],
   },
   {
     id: 'c8d9e0f1-g2h3-47i4-j5k6-l7m8n9o0p1q2',
@@ -98,7 +98,7 @@ export const ROOMS: Room[] = [
         closeMessage: 'La porta dorata si chiude con un suono metallico.',
       },
     },
-    items: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440003'],
+    items: ['550e8400-e29b-41d4-a716-446655440003'],
   },
 ];
 

@@ -11,6 +11,7 @@ export interface CommandResult {
   type: string;
   message?: string;
   newRoomId?: string;
+  direction?: string; // Direction of movement (nord, sud, est, ovest)
   triggerActivated?: {
     triggerId: string;
     globalMessage?: string;

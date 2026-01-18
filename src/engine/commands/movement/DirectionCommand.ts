@@ -89,6 +89,7 @@ export class DirectionCommand implements CommandHandler {
       type: 'move',
       message: `Sei entrato in:\n\n${getRoomDescription(nextRoomId)}`,
       newRoomId: nextRoomId,
+      direction: this.italianDirection,
     };
   }
 }

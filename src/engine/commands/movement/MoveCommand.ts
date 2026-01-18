@@ -15,6 +15,13 @@ const DIRECTION_MAP: Record<string, string> = {
   west: 'west',
 };
 
+const ENGLISH_TO_ITALIAN: Record<string, string> = {
+  north: 'nord',
+  south: 'sud',
+  east: 'est',
+  west: 'ovest',
+};
+
 export class MoveCommand implements CommandHandler {
   name = 'vai';
   requiresArg = true;
@@ -81,10 +88,12 @@ export class MoveCommand implements CommandHandler {
       };
     }
 
+    const italianDirection = ENGLISH_TO_ITALIAN[normalizedDirection] || arg.toLowerCase();
     return {
       type: 'move',
       message: `Sei entrato in:\n\n${getRoomDescription(nextRoomId)}`,
       newRoomId: nextRoomId,
+      direction: italianDirection,
     };
   }
 }
