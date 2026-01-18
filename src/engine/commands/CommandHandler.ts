@@ -6,6 +6,7 @@ export interface CommandContext {
   command?: string; // The actual command used (e.g., 'pull' if user typed 'pull lever')
   playerInventory?: string[]; // Array of item IDs in player's inventory
   maxWeight?: number; // Maximum weight the player can carry in kg
+  playerExperience?: number; // Player experience points
 }
 
 export interface CommandResult {

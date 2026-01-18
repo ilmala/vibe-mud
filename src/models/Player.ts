@@ -5,4 +5,5 @@ export interface Player {
   socketId: string;
   inventory: string[]; // Array of item IDs
   maxWeight: number; // Maximum weight the player can carry in kg
+  experience: number; // Player experience points
 }
