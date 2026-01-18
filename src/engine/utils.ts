@@ -3,6 +3,7 @@ import { isTriggered } from './triggers';
 import { getDoorState } from './doors';
 import { getRoomItems } from './items';
 import { getItemById } from '../data/items';
+import { getCurrentPhase, getPhaseIcon } from './gameTime';
 
 function directionToItalian(direction: string): string {
   const map: { [key: string]: string } = {
@@ -87,5 +88,6 @@ export function getRoomDescription(roomId: string, otherPlayers?: string[]): str
     }
   }
 
-  return `${room.title}\n\n${room.description}${exitsText}${doorsText}${interactablesText}${itemsText}${playersText}`;
+  const phaseIcon = getPhaseIcon(getCurrentPhase());
+  return `${phaseIcon} ${room.title}\n\n${room.description}${exitsText}${doorsText}${interactablesText}${itemsText}${playersText}`;
 }

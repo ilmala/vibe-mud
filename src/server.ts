@@ -5,6 +5,7 @@ import { Player, Room } from './models';
 import { STARTING_ROOM } from './data/world';
 import { parseCommand } from './engine/parser';
 import { handleCommand } from './engine/gameLogic';
+import { initGameTime, tick, getPhaseChangeMessage } from './engine/gameTime';
 
 const app = express();
 const httpServer = createServer(app);
@@ -240,6 +241,22 @@ function setupPlayerListeners(socket: any, player: Player): void {
     console.log(`[${player.name}] Say: ${message}`);
   });
 }
+
+// Initialize game time system
+initGameTime();
+
+// Game tick system - runs every second
+setInterval(() => {
+  const tickResult = tick();
+
+  if (tickResult.phaseChanged && tickResult.newPhase) {
+    // Broadcast phase change to all players
+    const phaseMessage = getPhaseChangeMessage(tickResult.newPhase);
+    io.emit('message', `\n${phaseMessage}`);
+
+    console.log(`[GAME TIME] Phase changed to: ${tickResult.newPhase}`);
+  }
+}, 1000); // 1 second tick
 
 httpServer.listen(PORT, () => {
   console.log(`🎮 Server MUD in ascolto su http://localhost:${PORT}`);
