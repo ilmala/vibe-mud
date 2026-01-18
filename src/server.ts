@@ -17,7 +17,7 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3000;
 
-// Helper function to get opposite direction
+// Helper function to get an opposite direction
 function getOppositeDirection(direction: string): string {
   const opposites: Record<string, string> = {
     nord: 'sud',
@@ -59,7 +59,7 @@ io.on('connection', (socket) => {
   // Request player name
   socket.emit('requestName');
 
-  // Listen for name from client
+  // Listen for the name from a client
   socket.once('setName', (playerName: string) => {
     const trimmedName = playerName.trim().slice(0, 20);
 
@@ -73,10 +73,10 @@ io.on('connection', (socket) => {
     player.name = trimmedName;
     console.log(`[${socket.id}] Ha scelto il nome: ${player.name}`);
 
-    // Join Socket.io room corresponding to the game room
+    // Join the Socket.io room corresponding to the game room
     socket.join(STARTING_ROOM);
 
-    // Send welcome message with player name
+    // Send a welcome message with the player name
     socket.emit('message', `\nBenvenuto ${player.name}!\n`);
 
     // Show starting room with exits
@@ -96,7 +96,7 @@ io.on('connection', (socket) => {
     // Notify others that a player joined
     socket.to(STARTING_ROOM).emit('message', `\n[${player.name} è entrato nella stanza]`);
 
-    // Setup command and chat listeners
+    // Set up command and chat listeners
     setupPlayerListeners(socket, player);
   });
 
@@ -137,14 +137,14 @@ function setupPlayerListeners(socket: any, player: Player): void {
       const newRoomId = result.newRoomId;
       const direction = result.direction;
 
-      // Notify other players in old room (not the player who is leaving)
+      // Notify other players in the old room (not the player who is leaving)
       if (direction) {
         socket.to(oldRoomId).emit('message', `\n[${player.name} è andato a ${direction}]`);
       } else {
         socket.to(oldRoomId).emit('message', `\n[${player.name} se ne è andato]`);
       }
 
-      // Move player to new Socket.io room
+      // Move player to the new Socket.io room
       socket.leave(oldRoomId);
       socket.join(newRoomId);
 
@@ -156,7 +156,7 @@ function setupPlayerListeners(socket: any, player: Player): void {
         .filter((p) => p.roomId === newRoomId && p.id !== player.id)
         .map((p) => p.name);
 
-      // Get full description with other players
+      // Get a full description with other players
       const descriptionResult = handleCommand(
         parseCommand('guarda'),
         newRoomId,
@@ -169,7 +169,7 @@ function setupPlayerListeners(socket: any, player: Player): void {
       // Send new room description to player
       socket.emit('message', `\nSei entrato in:\n\n${descriptionResult.message}`);
 
-      // Notify players in new room
+      // Notify players in the new room
       if (direction) {
         const oppositeDirection = getOppositeDirection(direction);
         socket.to(newRoomId).emit('message', `\n[${player.name} è arrivato da ${oppositeDirection}]`);
@@ -207,7 +207,7 @@ function setupPlayerListeners(socket: any, player: Player): void {
         socket.to(player.roomId).emit('message', `\n📦 ${result.broadcastMessage}`);
       }
     } else if (result.type === 'drop' && result.itemId) {
-      // Remove from player's inventory
+      // Remove from the player's inventory
       const index = player.inventory.indexOf(result.itemId);
       if (index > -1) {
         player.inventory.splice(index, 1);
