@@ -1,5 +1,5 @@
 import { CommandHandler, CommandContext, CommandResult } from '../CommandHandler';
-import { getItemById } from '../../../data/items';
+import { getItemById, calculateTotalWeight, formatWeight } from '../../../data/items';
 
 export class InventoryCommand implements CommandHandler {
   name = 'inventario';
@@ -12,23 +12,27 @@ export class InventoryCommand implements CommandHandler {
     if (!context.playerInventory || context.playerInventory.length === 0) {
       return {
         type: 'info',
-        message: '🎒 Il tuo inventario è vuoto.',
+        message: `🎒 Your inventory is empty.\n⚖️  Weight: 0.0 kg / ${formatWeight(context.maxWeight!)}`,
       };
     }
 
     const itemDescriptions = context.playerInventory
       .map(id => {
         const item = getItemById(id);
-        return item ? `  📦 ${item.name}` : null;
+        if (!item) return null;
+        const weight = item.weight ?? 0.5;
+        return `  📦 ${item.name} (${formatWeight(weight)})`;
       })
       .filter(desc => desc !== null);
 
-    const header = `🎒 Inventario (${context.playerInventory.length} oggetti):`;
+    const currentWeight = calculateTotalWeight(context.playerInventory);
+    const header = `🎒 Inventory (${context.playerInventory.length} items):`;
     const items = itemDescriptions.join('\n');
+    const weightInfo = `\n⚖️  Total weight: ${formatWeight(currentWeight)} / ${formatWeight(context.maxWeight!)}`;
 
     return {
       type: 'info',
-      message: `${header}\n${items}`,
+      message: `${header}\n${items}${weightInfo}`,
     };
   }
 }

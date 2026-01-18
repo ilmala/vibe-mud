@@ -49,6 +49,7 @@ io.on('connection', (socket) => {
     roomId: STARTING_ROOM,
     socketId: socket.id,
     inventory: [],
+    maxWeight: 50,
   };
 
   players.set(socket.id, player);
@@ -89,7 +90,8 @@ io.on('connection', (socket) => {
       player.id,
       player.name,
       otherPlayersInStarting,
-      player.inventory
+      player.inventory,
+      player.maxWeight
     );
     socket.emit('message', `${lookResult.message}`);
 
@@ -129,7 +131,8 @@ function setupPlayerListeners(socket: any, player: Player): void {
       player.id,
       player.name,
       otherPlayers,
-      player.inventory
+      player.inventory,
+      player.maxWeight
     );
 
     if (result.type === 'move' && result.newRoomId) {
@@ -163,7 +166,8 @@ function setupPlayerListeners(socket: any, player: Player): void {
         player.id,
         player.name,
         otherPlayersInNewRoom,
-        player.inventory
+        player.inventory,
+        player.maxWeight
       );
 
       // Send new room description to player

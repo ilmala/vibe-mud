@@ -1,6 +1,6 @@
 import { CommandHandler, CommandContext, CommandResult } from '../CommandHandler';
 import { getRoomItems, removeItemFromRoom } from '../../items';
-import { getItemById } from '../../../data/items';
+import { getItemById, canCarryItem, calculateTotalWeight, formatWeight } from '../../../data/items';
 
 export class PickupCommand implements CommandHandler {
   name = 'prendi';
@@ -38,6 +38,16 @@ export class PickupCommand implements CommandHandler {
       return {
         type: 'error',
         message: `Non puoi prendere ${item.name}.`,
+      };
+    }
+
+    // Weight validation
+    if (!canCarryItem(context.playerInventory || [], itemId, context.maxWeight!)) {
+      const currentWeight = calculateTotalWeight(context.playerInventory || []);
+      const itemWeight = item.weight ?? 0.5;
+      return {
+        type: 'error',
+        message: `${item.name} is too heavy! You are currently carrying ${formatWeight(currentWeight)} and this item weighs ${formatWeight(itemWeight)}. Your limit is ${formatWeight(context.maxWeight!)}.`,
       };
     }
 

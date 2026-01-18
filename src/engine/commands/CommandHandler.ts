@@ -3,8 +3,9 @@ export interface CommandContext {
   playerName: string;
   currentRoomId: string;
   otherPlayersInRoom?: string[];
-  command?: string; // The actual command used (e.g., 'tira' if user typed 'tira leva')
+  command?: string; // The actual command used (e.g., 'pull' if user typed 'pull lever')
   playerInventory?: string[]; // Array of item IDs in player's inventory
+  maxWeight?: number; // Maximum weight the player can carry in kg
 }
 
 export interface CommandResult {

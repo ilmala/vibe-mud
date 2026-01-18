@@ -12,7 +12,8 @@ export function handleCommand(
   playerId: string = '',
   playerName: string = '',
   otherPlayersInRoom?: string[],
-  playerInventory?: string[]
+  playerInventory?: string[],
+  maxWeight?: number
 ) {
   let finalCmd = command.cmd;
   let finalArg = command.arg;
@@ -37,6 +38,7 @@ export function handleCommand(
     otherPlayersInRoom,
     command: finalCmd, // Pass the actual command used
     playerInventory,
+    maxWeight,
   };
   return registry.execute(finalCmd, finalArg, context);
 }
