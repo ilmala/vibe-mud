@@ -2,6 +2,7 @@ import { CommandHandler, CommandContext, CommandResult } from '../CommandHandler
 import { getRoomById } from '../../../data/world';
 import { getRoomDescription } from '../../utils';
 import { isTriggered } from '../../triggers';
+import { getDoorState, getRequiredKey } from '../../doors';
 
 const DIRECTION_MAP: Record<string, string> = {
   nord: 'north',
@@ -67,6 +68,16 @@ export class MoveCommand implements CommandHandler {
       return {
         type: 'error',
         message: 'La stanza di destinazione non esiste.',
+      };
+    }
+
+    // Check if there's a door blocking passage
+    const doorState = getDoorState(context.currentRoomId, normalizedDirection);
+    if (doorState && doorState !== 'open') {
+      const stateName = doorState === 'locked' ? 'chiusa a chiave' : 'chiusa';
+      return {
+        type: 'error',
+        message: `La porta a ${arg} è ${stateName}.`,
       };
     }
 

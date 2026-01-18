@@ -1,12 +1,12 @@
 export { CommandHandler, CommandContext, CommandResult } from './CommandHandler';
 export { CommandRegistry } from './CommandRegistry';
 export { DirectionCommand, MoveCommand } from './movement';
-export { LookCommand, SayCommand, InteractCommand } from './interaction';
+export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand } from './interaction';
 export { HelpCommand } from './system';
 
 import { CommandRegistry } from './CommandRegistry';
 import { DirectionCommand, MoveCommand } from './movement';
-import { LookCommand, SayCommand, InteractCommand } from './interaction';
+import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand } from './interaction';
 import { HelpCommand } from './system';
 
 export function initializeCommands(): CommandRegistry {
@@ -29,9 +29,11 @@ export function initializeCommands(): CommandRegistry {
   const lookHandler = new LookCommand();
   const sayHandler = new SayCommand();
   const interactHandler = new InteractCommand();
+  const openDoorHandler = new OpenDoorCommand();
+  const closeDoorHandler = new CloseDoorCommand();
 
   // Register non-help commands first
-  registry.registerAll([...directionalHandlers, moveHandler, lookHandler, sayHandler, interactHandler]);
+  registry.registerAll([...directionalHandlers, moveHandler, lookHandler, sayHandler, interactHandler, openDoorHandler, closeDoorHandler]);
 
   // Create and register help command (it needs the registry)
   const helpHandler = new HelpCommand(registry);

@@ -11,14 +11,32 @@ export function handleCommand(
   currentRoomId: string,
   playerId: string = '',
   playerName: string = '',
-  otherPlayersInRoom?: string[]
+  otherPlayersInRoom?: string[],
+  playerInventory?: string[]
 ) {
+  let finalCmd = command.cmd;
+  let finalArg = command.arg;
+
+  // Check if there's a multi-word command (e.g., "apri porta")
+  const argParts = command.arg.split(/\s+/);
+  if (argParts.length > 0) {
+    const potentialMultiWordCmd = `${command.cmd} ${argParts[0]}`;
+    const allHandlers = registry.getAllHandlers();
+    const hasMultiWordCommand = allHandlers.some(h => h.name === potentialMultiWordCmd);
+
+    if (hasMultiWordCommand) {
+      finalCmd = potentialMultiWordCmd;
+      finalArg = argParts.slice(1).join(' ');
+    }
+  }
+
   const context: CommandContext = {
     playerId,
     playerName,
     currentRoomId,
     otherPlayersInRoom,
-    command: command.cmd, // Pass the actual command used
+    command: finalCmd, // Pass the actual command used
+    playerInventory,
   };
-  return registry.execute(command.cmd, command.arg, context);
+  return registry.execute(finalCmd, finalArg, context);
 }

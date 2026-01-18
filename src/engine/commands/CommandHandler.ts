@@ -4,6 +4,7 @@ export interface CommandContext {
   currentRoomId: string;
   otherPlayersInRoom?: string[];
   command?: string; // The actual command used (e.g., 'tira' if user typed 'tira leva')
+  playerInventory?: string[]; // Array of item IDs in player's inventory
 }
 
 export interface CommandResult {
@@ -14,6 +15,7 @@ export interface CommandResult {
     triggerId: string;
     globalMessage?: string;
   };
+  broadcastMessage?: string; // Message to broadcast to other players in the room
 }
 
 export interface CommandHandler {

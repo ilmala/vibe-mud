@@ -3,4 +3,5 @@ export interface Player {
   name: string;
   roomId: string; // Current room ID
   socketId: string;
+  inventory: string[]; // Array of item IDs
 }

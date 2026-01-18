@@ -22,4 +22,38 @@ export interface Room {
       revealMessage?: string;
     };
   };
+  doors?: {
+    north?: {
+      initialState: 'open' | 'closed' | 'locked';
+      keyId?: string;
+      name?: string;
+      description?: string;
+      openMessage?: string;
+      closeMessage?: string;
+    };
+    south?: {
+      initialState: 'open' | 'closed' | 'locked';
+      keyId?: string;
+      name?: string;
+      description?: string;
+      openMessage?: string;
+      closeMessage?: string;
+    };
+    east?: {
+      initialState: 'open' | 'closed' | 'locked';
+      keyId?: string;
+      name?: string;
+      description?: string;
+      openMessage?: string;
+      closeMessage?: string;
+    };
+    west?: {
+      initialState: 'open' | 'closed' | 'locked';
+      keyId?: string;
+      name?: string;
+      description?: string;
+      openMessage?: string;
+      closeMessage?: string;
+    };
+  };
 }

@@ -37,6 +37,7 @@ io.on('connection', (socket) => {
     name: 'Anonimo',
     roomId: STARTING_ROOM,
     socketId: socket.id,
+    inventory: [],
   };
 
   players.set(socket.id, player);
@@ -76,7 +77,8 @@ io.on('connection', (socket) => {
       STARTING_ROOM,
       player.id,
       player.name,
-      otherPlayersInStarting
+      otherPlayersInStarting,
+      player.inventory
     );
     socket.emit('message', `${lookResult.message}`);
 
@@ -115,7 +117,8 @@ function setupPlayerListeners(socket: any, player: Player): void {
       player.roomId,
       player.id,
       player.name,
-      otherPlayers
+      otherPlayers,
+      player.inventory
     );
 
     if (result.type === 'move' && result.newRoomId) {
@@ -143,7 +146,8 @@ function setupPlayerListeners(socket: any, player: Player): void {
         newRoomId,
         player.id,
         player.name,
-        otherPlayersInNewRoom
+        otherPlayersInNewRoom,
+        player.inventory
       );
 
       // Send new room description to player
@@ -167,6 +171,12 @@ function setupPlayerListeners(socket: any, player: Player): void {
       const fullMessage = `${player.name} dice: "${result.message}"`;
       io.to(player.roomId).emit('message', `\n${fullMessage}`);
       console.log(`[${player.name}] Say: ${result.message}`);
+    } else if (result.type === 'door') {
+      socket.emit('message', `\n${result.message}`);
+
+      if (result.broadcastMessage) {
+        io.to(player.roomId).emit('message', `\n🚪 ${result.broadcastMessage}`);
+      }
     } else if (result.type === 'error') {
       socket.emit('message', `\n❌ ${result.message}`);
     } else {
