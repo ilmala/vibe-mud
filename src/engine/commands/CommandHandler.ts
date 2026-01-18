@@ -16,6 +16,7 @@ export interface CommandResult {
     globalMessage?: string;
   };
   broadcastMessage?: string; // Message to broadcast to other players in the room
+  itemId?: string; // For pickup/drop commands to communicate item ID to server
 }
 
 export interface CommandHandler {

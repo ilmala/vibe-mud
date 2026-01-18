@@ -1,6 +1,8 @@
 import { getRoomById } from '../data/world';
 import { isTriggered } from './triggers';
 import { getDoorState } from './doors';
+import { getRoomItems } from './items';
+import { getItemById } from '../data/items';
 
 function directionToItalian(direction: string): string {
   const map: { [key: string]: string } = {
@@ -69,5 +71,21 @@ export function getRoomDescription(roomId: string, otherPlayers?: string[]): str
     interactablesText = `\n[Oggetti: ${objectNames.join(', ')}]`;
   }
 
-  return `${room.title}\n\n${room.description}${exitsText}${doorsText}${interactablesText}${playersText}`;
+  // Add items info
+  let itemsText = '';
+  const roomItemIds = getRoomItems(roomId);
+  if (roomItemIds.length > 0) {
+    const itemNames = roomItemIds
+      .map(id => {
+        const item = getItemById(id);
+        return item ? `📦 ${item.name}` : null;
+      })
+      .filter(name => name !== null);
+
+    if (itemNames.length > 0) {
+      itemsText = `\n[Oggetti a terra: ${itemNames.join(', ')}]`;
+    }
+  }
+
+  return `${room.title}\n\n${room.description}${exitsText}${doorsText}${interactablesText}${itemsText}${playersText}`;
 }

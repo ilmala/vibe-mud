@@ -177,6 +177,28 @@ function setupPlayerListeners(socket: any, player: Player): void {
       if (result.broadcastMessage) {
         io.to(player.roomId).emit('message', `\n🚪 ${result.broadcastMessage}`);
       }
+    } else if (result.type === 'pickup' && result.itemId) {
+      // Add to player's inventory
+      player.inventory.push(result.itemId);
+
+      socket.emit('message', `\n${result.message}`);
+      if (result.broadcastMessage) {
+        socket.to(player.roomId).emit('message', `\n📦 ${result.broadcastMessage}`);
+      }
+    } else if (result.type === 'drop' && result.itemId) {
+      // Remove from player's inventory
+      const index = player.inventory.indexOf(result.itemId);
+      if (index > -1) {
+        player.inventory.splice(index, 1);
+      }
+
+      socket.emit('message', `\n${result.message}`);
+      if (result.broadcastMessage) {
+        socket.to(player.roomId).emit('message', `\n📦 ${result.broadcastMessage}`);
+      }
+    } else if (result.type === 'info') {
+      // For inventory and examine commands
+      socket.emit('message', `\n${result.message}`);
     } else if (result.type === 'error') {
       socket.emit('message', `\n❌ ${result.message}`);
     } else {

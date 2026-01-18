@@ -56,4 +56,5 @@ export interface Room {
       closeMessage?: string;
     };
   };
+  items?: string[]; // Array of item IDs present initially in the room
 }

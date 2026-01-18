@@ -3,3 +3,7 @@ export { SayCommand } from './SayCommand';
 export { InteractCommand } from './InteractCommand';
 export { OpenDoorCommand } from './OpenDoorCommand';
 export { CloseDoorCommand } from './CloseDoorCommand';
+export { PickupCommand } from './PickupCommand';
+export { DropCommand } from './DropCommand';
+export { InventoryCommand } from './InventoryCommand';
+export { ExamineCommand } from './ExamineCommand';

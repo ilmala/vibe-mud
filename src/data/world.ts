@@ -39,7 +39,7 @@ export const ROOMS: Room[] = [
     doors: {
       north: {
         initialState: 'locked',
-        keyId: 'golden-key-001',
+        keyId: '550e8400-e29b-41d4-a716-446655440001',
         name: 'porta dorata',
         description: 'Una massiccia porta dorata con intricati intarsi.',
         openMessage: 'La porta dorata si apre lentamente, rivelando una stanza brillante.',
@@ -53,6 +53,7 @@ export const ROOMS: Room[] = [
         revealMessage: 'La leva scatta e il muro a est si ritrae! Un passaggio segreto si apre verso est!',
       },
     },
+    items: ['550e8400-e29b-41d4-a716-446655440004'],
   },
   {
     id: 'c8d9e0f1-g2h3-47i4-j5k6-l7m8n9o0p1q2',
@@ -77,6 +78,7 @@ export const ROOMS: Room[] = [
     exits: {
       west: 'b5c6d7e8-f9g0-47h1-i2j3-k4l5m6n7o8p9',
     },
+    items: ['550e8400-e29b-41d4-a716-446655440002'],
   },
   {
     id: 'e2f3g4h5-i6j7-47k8-l9m0-n1o2p3q4r5s6',
@@ -89,13 +91,14 @@ export const ROOMS: Room[] = [
     doors: {
       south: {
         initialState: 'locked',
-        keyId: 'golden-key-001',
+        keyId: '550e8400-e29b-41d4-a716-446655440001',
         name: 'porta dorata',
         description: 'Una massiccia porta dorata con intricati intarsi.',
         openMessage: 'La porta dorata si apre lentamente, rivelando il tempio.',
         closeMessage: 'La porta dorata si chiude con un suono metallico.',
       },
     },
+    items: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440003'],
   },
 ];
 
