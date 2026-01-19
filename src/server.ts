@@ -66,6 +66,11 @@ io.on('connection', (socket) => {
     inventory: [],
     maxWeight: 50,
     experience: 0,
+    // Combat stats
+    maxHp: 100,
+    currentHp: 100,
+    attack: 10,
+    defense: 5,
   };
 
   players.set(socket.id, player);
