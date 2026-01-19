@@ -1,5 +1,6 @@
 import { CommandHandler, CommandContext, CommandResult } from '../CommandHandler';
 import { getDoorState, setDoorState, doorExists, getRequiredKey } from '../../doors';
+import { getItemById } from '../../../data/items';
 
 const DIRECTION_MAP: Record<string, string> = {
   nord: 'north',
@@ -64,6 +65,7 @@ export class OpenDoorCommand implements CommandHandler {
     }
 
     // If door is locked, check for key
+    let consumedKeyId: string | undefined;
     if (currentState === 'locked') {
       const requiredKey = getRequiredKey(context.currentRoomId, normalizedDirection);
       if (!requiredKey) {
@@ -74,24 +76,38 @@ export class OpenDoorCommand implements CommandHandler {
       }
 
       if (!context.playerInventory || !context.playerInventory.includes(requiredKey)) {
+        const keyItem = getItemById(requiredKey);
+        const keyName = keyItem?.name || 'una chiave';
         return {
           type: 'error',
-          message: `La porta è chiusa a chiave. Ti serve: ${requiredKey}`,
+          message: `La porta è chiusa a chiave. Ti serve: ${keyName}`,
         };
       }
+
+      // Mark key for consumption
+      consumedKeyId = requiredKey;
     }
 
     // Open the door
     setDoorState(context.currentRoomId, normalizedDirection, 'open');
 
     const dirIT = directionToItalian(normalizedDirection);
-    const playerMessage = `Apri la porta a ${dirIT}.`;
+    let playerMessage = `Apri la porta a ${dirIT}.`;
+
+    // Add key consumption message if applicable
+    if (consumedKeyId) {
+      const keyItem = getItemById(consumedKeyId);
+      const keyName = keyItem?.name || 'la chiave';
+      playerMessage += `\nUsi ${keyName} per aprire la porta. La chiave si consuma nella serratura!`;
+    }
+
     const broadcastMessage = `${context.playerName} apre la porta a ${dirIT}.`;
 
     return {
       type: 'door',
       message: playerMessage,
       broadcastMessage: broadcastMessage,
+      consumedItemId: consumedKeyId, // Signal to server to remove and respawn key
     };
   }
 }

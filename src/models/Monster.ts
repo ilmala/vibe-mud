@@ -7,6 +7,7 @@ export interface Monster {
 
   // Combat stats (for future combat system)
   maxHp: number; // Maximum hit points
+  currentHp?: number; // Current hit points (defaults to maxHp if not set)
   attack: number; // Base attack damage
   defense: number; // Damage reduction/armor value
   experienceDrop: number; // XP awarded when defeated

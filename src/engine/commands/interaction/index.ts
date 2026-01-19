@@ -8,3 +8,6 @@ export { DropCommand } from './DropCommand';
 export { InventoryCommand } from './InventoryCommand';
 export { ExamineCommand } from './ExamineCommand';
 export { ParlaCommand } from './ParlaCommand';
+export { BeviCommand } from './BeviCommand';
+export { MangiaCommand } from './MangiaCommand';
+export { LeggiCommand } from './LeggiCommand';

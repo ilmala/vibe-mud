@@ -1,12 +1,12 @@
 export { CommandHandler, CommandContext, CommandResult } from './CommandHandler';
 export { CommandRegistry } from './CommandRegistry';
 export { DirectionCommand, MoveCommand } from './movement';
-export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand } from './interaction';
+export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand } from './interaction';
 export { HelpCommand, TimeCommand, ExperienceCommand } from './system';
 
 import { CommandRegistry } from './CommandRegistry';
 import { DirectionCommand, MoveCommand } from './movement';
-import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand } from './interaction';
+import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand } from './interaction';
 import { HelpCommand, TimeCommand, ExperienceCommand } from './system';
 
 export function initializeCommands(): CommandRegistry {
@@ -38,6 +38,9 @@ export function initializeCommands(): CommandRegistry {
   const inventoryHandler = new InventoryCommand();
   const examineHandler = new ExamineCommand();
   const parlaHandler = new ParlaCommand();
+  const beviHandler = new BeviCommand();
+  const mangiaHandler = new MangiaCommand();
+  const leggiHandler = new LeggiCommand();
   const timeHandler = new TimeCommand();
   const experienceHandler = new ExperienceCommand();
 
@@ -55,6 +58,9 @@ export function initializeCommands(): CommandRegistry {
     inventoryHandler,
     examineHandler,
     parlaHandler,
+    beviHandler,
+    mangiaHandler,
+    leggiHandler,
     timeHandler,
     experienceHandler
   ]);

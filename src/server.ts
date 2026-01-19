@@ -10,6 +10,7 @@ import { handleCommand } from './engine/gameLogic';
 import { initGameTime, tick, getPhaseChangeMessage } from './engine/gameTime';
 import { initNPCTracking } from './engine/npcs';
 import { initMonsterTracking } from './engine/monsters';
+import { registerItemPickup, consumeItem } from './engine/items';
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +66,11 @@ io.on('connection', (socket) => {
     inventory: [],
     maxWeight: 50,
     experience: 0,
+    // Combat stats
+    maxHp: 100,
+    currentHp: 100,
+    attack: 10,
+    defense: 5,
   };
 
   players.set(socket.id, player);
@@ -214,6 +220,20 @@ function setupPlayerListeners(socket: any, player: Player): void {
       const fullMessage = `${player.name} dice: "${result.message}"`;
       io.to(player.roomId).emit('message', `\n${fullMessage}`);
       console.log(`[${player.name}] Say: ${result.message}`);
+    } else if (result.type === 'door' && result.consumedItemId) {
+      // Handle key consumption when opening a locked door (check BEFORE generic door handler)
+      const index = player.inventory.indexOf(result.consumedItemId);
+      if (index > -1) {
+        player.inventory.splice(index, 1);
+
+        // Schedule respawn
+        consumeItem(result.consumedItemId, io);
+      }
+
+      socket.emit('message', `\n${result.message}`);
+      if (result.broadcastMessage) {
+        io.to(player.roomId).emit('message', `\n🚪 ${result.broadcastMessage}`);
+      }
     } else if (result.type === 'door') {
       socket.emit('message', `\n${result.message}`);
 
@@ -223,6 +243,9 @@ function setupPlayerListeners(socket: any, player: Player): void {
     } else if (result.type === 'pickup' && result.itemId) {
       // Add to player's inventory
       player.inventory.push(result.itemId);
+
+      // Register the original room for this item (for respawn after consumption)
+      registerItemPickup(result.itemId, player.roomId);
 
       socket.emit('message', `\n${result.message}`);
       if (result.broadcastMessage) {
@@ -238,6 +261,20 @@ function setupPlayerListeners(socket: any, player: Player): void {
       socket.emit('message', `\n${result.message}`);
       if (result.broadcastMessage) {
         socket.to(player.roomId).emit('message', `\n📦 ${result.broadcastMessage}`);
+      }
+    } else if (result.consumedItemId && result.type === 'consume_item') {
+      // Handle item consumption (potion, food, scroll)
+      const index = player.inventory.indexOf(result.consumedItemId);
+      if (index > -1) {
+        player.inventory.splice(index, 1);
+
+        // Schedule respawn
+        consumeItem(result.consumedItemId, io);
+      }
+
+      socket.emit('message', `\n${result.message}`);
+      if (result.broadcastMessage) {
+        io.to(player.roomId).emit('message', `\n${result.broadcastMessage}`);
       }
     } else if (result.type === 'info') {
       // For inventory and examine commands
