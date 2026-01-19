@@ -20,6 +20,11 @@ import {
   getSlotEmoji,
 } from './engine/equipment';
 import { getItemById } from './data/items';
+import {
+  trackItemPickup,
+  trackMonsterDefeat,
+  processRespawn,
+} from './engine/respawn';
 
 const PORT = process.env.PORT || 3000;
 
@@ -279,6 +284,7 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
       } else if (result.type === 'pickup' && result.itemId) {
         player.inventory.push(result.itemId);
         registerItemPickup(result.itemId, player.roomId);
+        trackItemPickup(result.itemId, player.roomId);
 
         sendToPlayerWithStatus(playerId, `\n${result.message}`);
         if (result.broadcastMessage) {
@@ -480,6 +486,25 @@ setInterval(() => {
     console.log(`[GAME TIME] Phase changed to: ${tickResult.newPhase}`);
   }
 }, 1000);
+
+// Respawn tick - process item and monster respawns every 5 seconds
+setInterval(() => {
+  const respawnResult = processRespawn();
+
+  // Notify all players if items or monsters respawned
+  if (respawnResult.respawnedItems.length > 0) {
+    for (const itemId of respawnResult.respawnedItems) {
+      const item = getItemById(itemId);
+      if (item) {
+        console.log(`🔄 Item respawned: ${item.name}`);
+      }
+    }
+  }
+
+  if (respawnResult.respawnedMonsters.length > 0) {
+    console.log(`🔄 ${respawnResult.respawnedMonsters.length} monster(s) respawned`);
+  }
+}, 5000);
 
 // Start Bun server
 const server: any = Bun.serve({

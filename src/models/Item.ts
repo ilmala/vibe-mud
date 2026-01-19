@@ -25,4 +25,5 @@ export interface Item {
   slot?: EquipmentSlot; // Equipment slot it occupies
   stats?: EquipmentStats; // Bonus statistics when equipped
   twoHanded?: boolean;  // Whether it occupies both hands
+  respawnTime?: number; // Time in milliseconds before item respawns (uses default if not set)
 }

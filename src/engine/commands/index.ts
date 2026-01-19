@@ -1,12 +1,12 @@
 export { CommandRegistry } from './CommandRegistry';
 export { DirectionCommand, MoveCommand } from './movement';
 export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand, EquipCommand, UnequipCommand } from './interaction';
-export { HelpCommand, TimeCommand, ExperienceCommand, StatsCommand } from './system';
+export { HelpCommand, TimeCommand, ExperienceCommand, StatsCommand, KillDebugCommand } from './system';
 
 import { CommandRegistry } from './CommandRegistry';
 import { DirectionCommand, MoveCommand } from './movement';
 import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand, EquipCommand, UnequipCommand } from './interaction';
-import { HelpCommand, TimeCommand, ExperienceCommand, StatsCommand } from './system';
+import { HelpCommand, TimeCommand, ExperienceCommand, StatsCommand, KillDebugCommand } from './system';
 
 export function initializeCommands(): CommandRegistry {
   const registry = new CommandRegistry();
@@ -44,6 +44,7 @@ export function initializeCommands(): CommandRegistry {
   const unequipHandler = new UnequipCommand();
   const timeHandler = new TimeCommand();
   const statsHandler = new StatsCommand();
+  const killDebugHandler = new KillDebugCommand();
   const experienceHandler = new ExperienceCommand();
 
   // Register non-help commands first
@@ -67,6 +68,7 @@ export function initializeCommands(): CommandRegistry {
     unequipHandler,
     timeHandler,
     statsHandler,
+    killDebugHandler,
     experienceHandler
   ]);
 

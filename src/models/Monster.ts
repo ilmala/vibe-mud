@@ -20,6 +20,9 @@ export interface Monster {
   // Equipment system
   equipment?: PlayerEquipment;
 
+  // Respawn system
+  respawnTime?: number; // Time in milliseconds before monster respawns (uses default if not set)
+
   // Classification
   type?: string; // Optional category (undead, beast, demon, ooze, etc.)
   level?: number; // Monster difficulty level

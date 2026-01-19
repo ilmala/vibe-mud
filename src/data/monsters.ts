@@ -20,6 +20,7 @@ export const MONSTERS: Monster[] = [
     inventory: ['550e8400-e29b-41d4-a716-446655440002'], // rusted sword
     level: 3,
     aggressive: true,
+    respawnTime: 300 * 1000, // 5 minutes (boss monster)
   },
   {
     id: 'monster-550e8400-e29b-41d4-a716-446655440002',
@@ -40,6 +41,7 @@ export const MONSTERS: Monster[] = [
     inventory: [],
     level: 2,
     aggressive: true,
+    respawnTime: 180 * 1000, // 3 minutes (medium difficulty)
   },
   {
     id: 'monster-550e8400-e29b-41d4-a716-446655440003',
@@ -60,6 +62,7 @@ export const MONSTERS: Monster[] = [
     inventory: [],
     level: 1,
     aggressive: false,
+    respawnTime: 120 * 1000, // 2 minutes (easy monster)
   },
 ];
 

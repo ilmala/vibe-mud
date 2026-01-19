@@ -110,6 +110,7 @@ export const ITEMS: Item[] = [
     slot: 'rightHand',
     stats: { attack: 15 },
     twoHanded: true,
+    respawnTime: 180 * 1000, // 3 minutes (rare item)
   },
   // SHIELDS
   {
@@ -156,6 +157,7 @@ export const ITEMS: Item[] = [
     equipable: true,
     slot: 'armor',
     stats: { defense: 8 },
+    respawnTime: 120 * 1000, // 2 minutes (rare heavy armor)
   },
   // HELMET
   {
@@ -204,6 +206,7 @@ export const ITEMS: Item[] = [
     equipable: true,
     slot: 'ring1',
     stats: { attack: 2, defense: 2 },
+    respawnTime: 180 * 1000, // 3 minutes (rare magical item)
   },
   {
     id: 'accessory-anello-vitalita-001',
@@ -215,6 +218,7 @@ export const ITEMS: Item[] = [
     equipable: true,
     slot: 'ring1',
     stats: { maxHp: 20 },
+    respawnTime: 180 * 1000, // 3 minutes (rare magical item)
   },
   // AMULET
   {
@@ -227,6 +231,7 @@ export const ITEMS: Item[] = [
     equipable: true,
     slot: 'amulet',
     stats: { attack: 3, defense: 3 },
+    respawnTime: 180 * 1000, // 3 minutes (rare magical item)
   },
 ];
 
