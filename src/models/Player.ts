@@ -30,4 +30,7 @@ export interface Player {
 
   // Equipment system
   equipment: PlayerEquipment;
+
+  // Active combat
+  activeCombatId?: string; // ID of active combat session
 }

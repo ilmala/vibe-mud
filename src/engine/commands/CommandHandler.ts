@@ -29,6 +29,11 @@ export interface CommandResult {
   consumedItemId?: string; // For consumable items (potions, food, etc) to signal removal and respawn
   slot?: EquipmentSlot; // For unequip commands
   itemName?: string; // For unequip by name
+  // Combat system
+  targetId?: string; // Monster ID for combat_start
+  targetName?: string; // Name of target for messages
+  targetIsMonster?: boolean; // true if target is a monster
+  combatAction?: 'attack' | 'defend' | 'flee'; // Type of combat action
 }
 
 export interface CommandHandler {
