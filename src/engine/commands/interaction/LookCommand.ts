@@ -11,7 +11,7 @@ export class LookCommand implements CommandHandler {
   execute(arg: string, context: CommandContext): CommandResult {
     return {
       type: 'look',
-      message: getRoomDescription(context.currentRoomId, context.otherPlayersInRoom),
+      message: getRoomDescription(context.currentRoomId, context.otherPlayersInRoom, context.npcsInRoom, context.monstersInRoom),
     };
   }
 }

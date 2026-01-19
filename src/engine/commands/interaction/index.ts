@@ -7,3 +7,4 @@ export { PickupCommand } from './PickupCommand';
 export { DropCommand } from './DropCommand';
 export { InventoryCommand } from './InventoryCommand';
 export { ExamineCommand } from './ExamineCommand';
+export { ParlaCommand } from './ParlaCommand';

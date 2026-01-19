@@ -1,11 +1,15 @@
 import express from 'express';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
-import { Player, Room } from './models';
+import { Player, Room, NPC, Monster } from './models';
 import { STARTING_ROOM } from './data/world';
+import { NPCS } from './data/npcs';
+import { MONSTERS } from './data/monsters';
 import { parseCommand } from './engine/parser';
 import { handleCommand } from './engine/gameLogic';
 import { initGameTime, tick, getPhaseChangeMessage } from './engine/gameTime';
+import { initNPCTracking } from './engine/npcs';
+import { initMonsterTracking } from './engine/monsters';
 
 const app = express();
 const httpServer = createServer(app);
@@ -33,6 +37,13 @@ function getOppositeDirection(direction: string): string {
 
 // Store active players
 const players: Map<string, Player> = new Map();
+
+// Store NPC locations (runtime tracking)
+const npcLocations: Map<string, string> = new Map();
+
+// Store Monster locations and HP (runtime tracking)
+const monsterLocations: Map<string, string> = new Map();
+const monsterHp: Map<string, number> = new Map();
 
 const MOTD = `
 ╔════════════════════════════════════╗
@@ -248,6 +259,29 @@ function setupPlayerListeners(socket: any, player: Player): void {
 
 // Initialize game time system
 initGameTime();
+
+// Initialize NPCs
+function initializeNPCs(): void {
+  NPCS.forEach(npc => {
+    npcLocations.set(npc.id, npc.roomId);
+  });
+  console.log(`🤖 Initialized ${NPCS.length} NPCs`);
+}
+
+initializeNPCs();
+initNPCTracking(npcLocations);
+
+// Initialize Monsters
+function initializeMonsters(): void {
+  MONSTERS.forEach(monster => {
+    monsterLocations.set(monster.id, monster.roomId);
+    monsterHp.set(monster.id, monster.maxHp);
+  });
+  console.log(`👹 Initialized ${MONSTERS.length} Monsters`);
+}
+
+initializeMonsters();
+initMonsterTracking(monsterLocations, monsterHp);
 
 // Game tick system - runs every second
 setInterval(() => {
