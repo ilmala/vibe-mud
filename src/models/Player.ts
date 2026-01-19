@@ -6,6 +6,7 @@ export interface Player {
   inventory: string[]; // Array of item IDs
   maxWeight: number; // Maximum weight the player can carry in kg
   experience: number; // Player experience points
+  level: number; // Player level (increases with experience)
 
   // Combat stats (for future combat system)
   maxHp: number; // Maximum hit points

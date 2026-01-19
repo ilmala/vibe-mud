@@ -122,3 +122,30 @@ export function getRoomDescription(
   const phaseIcon = getPhaseIcon(getCurrentPhase());
   return `${phaseIcon} ${room.title}\n\n${room.description}${exitsText}${doorsText}${interactablesText}${itemsText}${presentiText}`;
 }
+
+/**
+ * Generate a status bar showing player level and HP
+ * @param level Player level
+ * @param currentHp Current hit points
+ * @param maxHp Maximum hit points
+ * @returns Formatted status bar string
+ */
+export function generateStatusBar(level: number, currentHp: number, maxHp: number): string {
+  const hpPercent = (currentHp / maxHp) * 100;
+  const barLength = 15;
+  const filledBars = Math.round((currentHp / maxHp) * barLength);
+  const emptyBars = barLength - filledBars;
+  const hpBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
+
+  // Determine HP color indicator based on percentage
+  let hpStatus = '✅';
+  if (hpPercent <= 25) {
+    hpStatus = '🔴'; // Critical
+  } else if (hpPercent <= 50) {
+    hpStatus = '🟡'; // Warning
+  } else if (hpPercent <= 75) {
+    hpStatus = '🟢'; // Good
+  }
+
+  return `\n┌──────────────────────────────────┐\n│ Lvl ${level.toString().padEnd(2)} │ ${hpStatus} HP: [${hpBar}] ${currentHp}/${maxHp}\n└──────────────────────────────────┘`;
+}

@@ -9,6 +9,7 @@ import { initGameTime, tick, getPhaseChangeMessage } from './engine/gameTime';
 import { initNPCTracking } from './engine/npcs';
 import { initMonsterTracking } from './engine/monsters';
 import { registerItemPickup, consumeItem } from './engine/items';
+import { generateStatusBar } from './engine/utils';
 
 const PORT = process.env.PORT || 3000;
 
@@ -63,6 +64,18 @@ function sendToPlayer(playerId: string, message: string): void {
   if (ws && ws.readyState === 1) { // 1 = OPEN
     ws.send(JSON.stringify({ type: 'message', data: message }));
   }
+}
+
+// Helper: Send message to a player with status bar (level + HP)
+function sendToPlayerWithStatus(playerId: string, message: string): void {
+  const player = players.get(playerId);
+  if (!player) return;
+
+  const currentHp = player.currentHp ?? player.maxHp;
+  const statusBar = generateStatusBar(player.level, currentHp, player.maxHp);
+  const fullMessage = message + statusBar;
+
+  sendToPlayer(playerId, fullMessage);
 }
 
 // Helper: Broadcast to all players in a room (excluding sender if specified)
@@ -143,9 +156,10 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
         otherPlayersInStarting,
         player.inventory,
         player.maxWeight,
-        player.experience
+        player.experience,
+        player.level
       );
-      sendToPlayer(playerId, `${lookResult.message}`);
+      sendToPlayerWithStatus(playerId, `${lookResult.message}`);
 
       // Notify others that a player joined
       broadcastToRoom(STARTING_ROOM, `\n[${player.name} è entrato nella stanza]`, playerId);
@@ -168,7 +182,8 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
         otherPlayers,
         player.inventory,
         player.maxWeight,
-        player.experience
+        player.experience,
+        player.level
       );
 
       if (result.type === 'move' && result.newRoomId) {
@@ -204,11 +219,12 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           otherPlayersInNewRoom,
           player.inventory,
           player.maxWeight,
-          player.experience
+          player.experience,
+          player.level
         );
 
         // Send new room to player
-        sendToPlayer(playerId, `\nSei entrato in:\n\n${descriptionResult.message}`);
+        sendToPlayerWithStatus(playerId, `\nSei entrato in:\n\n${descriptionResult.message}`);
 
         // Notify players in new room
         if (direction) {
@@ -218,14 +234,14 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           broadcastToRoom(newRoomId, `\n[${player.name} è entrato nella stanza]`, playerId);
         }
       } else if (result.type === 'interact') {
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
         if (result.triggerActivated?.globalMessage) {
           broadcastToRoom(player.roomId, `\n🔧 ${result.triggerActivated.globalMessage}`);
         }
       } else if (result.type === 'look') {
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
       } else if (result.type === 'help') {
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
       } else if (result.type === 'say' && result.message) {
         const fullMessage = `${player.name} dice: "${result.message}"`;
         broadcastToRoom(player.roomId, `\n${fullMessage}`);
@@ -238,12 +254,12 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           consumeItem(result.consumedItemId, { publish: (room: string, msg: string) => broadcastToRoom(room, msg) });
         }
 
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n🚪 ${result.broadcastMessage}`, playerId);
         }
       } else if (result.type === 'door') {
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n🚪 ${result.broadcastMessage}`, playerId);
         }
@@ -251,7 +267,7 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
         player.inventory.push(result.itemId);
         registerItemPickup(result.itemId, player.roomId);
 
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n📦 ${result.broadcastMessage}`, playerId);
         }
@@ -261,7 +277,7 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           player.inventory.splice(index, 1);
         }
 
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n📦 ${result.broadcastMessage}`, playerId);
         }
@@ -273,16 +289,16 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           consumeItem(result.consumedItemId, { publish: (room: string, msg: string) => broadcastToRoom(room, msg) });
         }
 
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n${result.broadcastMessage}`, playerId);
         }
       } else if (result.type === 'info') {
-        sendToPlayer(playerId, `\n${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n${result.message}`);
       } else if (result.type === 'error') {
-        sendToPlayer(playerId, `\n❌ ${result.message}`);
+        sendToPlayerWithStatus(playerId, `\n❌ ${result.message}`);
       } else {
-        sendToPlayer(playerId, `\n❌ Comando sconosciuto.`);
+        sendToPlayerWithStatus(playerId, `\n❌ Comando sconosciuto.`);
       }
     } else if (parsed.type === 'say') {
       const message = parsed.data || '';
@@ -334,6 +350,7 @@ const server: any = Bun.serve({
         inventory: [],
         maxWeight: 50,
         experience: 0,
+        level: 1,
         maxHp: 100,
         currentHp: 100,
         attack: 10,

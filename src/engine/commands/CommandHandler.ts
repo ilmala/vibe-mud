@@ -9,6 +9,7 @@ export interface CommandContext {
   playerInventory?: string[]; // Array of item IDs in player's inventory
   maxWeight?: number; // Maximum weight the player can carry in kg
   playerExperience?: number; // Player experience points
+  playerLevel?: number; // Player current level
 }
 
 export interface CommandResult {

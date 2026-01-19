@@ -2,6 +2,7 @@ import { Command } from './parser';
 import { initializeCommands } from './commands';
 import type { CommandContext } from './commands/CommandHandler';
 import { getRoomDescription } from './utils';
+import { calculateLevel } from './experience';
 import { getNPCsInRoom } from './npcs';
 import { getMonstersInRoom } from './monsters';
 
@@ -17,7 +18,8 @@ export function handleCommand(
   otherPlayersInRoom?: string[],
   playerInventory?: string[],
   maxWeight?: number,
-  playerExperience?: number
+  playerExperience?: number,
+  playerLevel?: number
 ) {
   let finalCmd = command.cmd;
   let finalArg = command.arg;
@@ -38,6 +40,9 @@ export function handleCommand(
   const npcsInRoom = getNPCsInRoom(currentRoomId);
   const monstersInRoom = getMonstersInRoom(currentRoomId);
 
+  // Calculate level from experience if not provided
+  const finalLevel = playerLevel ?? (playerExperience ? calculateLevel(playerExperience) : 1);
+
   const context: CommandContext = {
     playerId,
     playerName,
@@ -49,6 +54,7 @@ export function handleCommand(
     playerInventory,
     maxWeight,
     playerExperience,
+    playerLevel: finalLevel,
   };
   return registry.execute(finalCmd, finalArg, context);
 }
