@@ -74,14 +74,23 @@ export function getItemOriginalRoom(itemId: string): string | undefined {
 }
 
 /**
+ * Broadcaster interface - abstracts away Socket.io vs Bun implementation
+ */
+export interface Broadcaster {
+  publish(roomId: string, message: string): void;
+  // Optional: for Socket.io compatibility
+  to?(roomId: string): { emit?(event: string, message: string): void };
+}
+
+/**
  * Consume an item and schedule its respawn after 5 minutes
  * @param itemId - The ID of the item being consumed
- * @param io - Socket.io instance for broadcasting respawn notification
+ * @param broadcaster - Broadcaster instance (Socket.io or Bun) for respawn notification
  * @returns true if respawn was scheduled, false if original room not found
  */
 export function consumeItem(
   itemId: string,
-  io: any
+  broadcaster: Broadcaster | any
 ): boolean {
   const originalRoom = itemOriginalRooms.get(itemId);
 
@@ -99,8 +108,15 @@ export function consumeItem(
   const timer = setTimeout(() => {
     addItemToRoom(originalRoom, itemId);
 
-    // Notify players in that room
-    io.to(originalRoom).emit('message', `\n✨ Qualcosa appare in questa stanza...`);
+    // Notify players in that room - support both Socket.io and Bun interfaces
+    const message = `\n✨ Qualcosa appare in questa stanza...`;
+    if (broadcaster.publish) {
+      // Bun interface
+      broadcaster.publish(originalRoom, message);
+    } else if (broadcaster.to) {
+      // Socket.io interface
+      broadcaster.to(originalRoom).emit('message', message);
+    }
 
     itemRespawnTimers.delete(itemId);
     console.log(`[ITEM RESPAWN] Item ${itemId} respawned in room ${originalRoom}`);

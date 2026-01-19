@@ -1,49 +1,64 @@
-import { io } from 'socket.io-client';
 import * as readline from 'readline';
 
-const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3000';
-
-const socket = io(SERVER_URL, {
-  reconnection: true,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-  reconnectionAttempts: 5,
-});
+const SERVER_URL = process.env.SERVER_URL || 'ws://localhost:3000/ws';
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
+let ws: WebSocket | null = null;
 let isConnected = false;
 let nameChosen = false;
 
-socket.on('connect', () => {
-  isConnected = true;
-  console.log('✓ Connesso al server\n');
-});
+// Message types for communication
+interface Message {
+  type: string;
+  data?: string;
+  excludePlayerId?: string;
+}
 
-socket.on('disconnect', () => {
-  isConnected = false;
-  console.log('\n✗ Disconnesso dal server');
-  rl.close();
-  process.exit(0);
-});
+// Connect to WebSocket server
+function connect(): void {
+  console.log(`🎮 Connessione al server MUD su ${SERVER_URL}...`);
 
-socket.on('message', (msg: string) => {
-  console.log(msg);
-  if (isConnected && nameChosen) {
-    promptInput();
-  }
-});
+  ws = new WebSocket(SERVER_URL);
 
-socket.on('requestName', () => {
-  promptForName();
-});
+  ws.onopen = () => {
+    isConnected = true;
+    console.log('✓ Connesso al server\n');
+  };
 
-socket.on('error', (error: any) => {
-  console.error('Errore:', error);
-});
+  ws.onmessage = (event: MessageEvent) => {
+    try {
+      const message = JSON.parse(event.data) as Message;
+
+      if (message.type === 'message') {
+        console.log(message.data || '');
+        if (isConnected && nameChosen) {
+          promptInput();
+        }
+      } else if (message.type === 'requestName') {
+        promptForName();
+      } else if (message.type === 'error') {
+        console.error('❌ Errore:', message.data);
+      }
+    } catch (error) {
+      console.error('Errore nel parsing del messaggio:', error);
+    }
+  };
+
+  ws.onerror = (error: Event) => {
+    console.error('Errore WebSocket:', error);
+  };
+
+  ws.onclose = () => {
+    isConnected = false;
+    console.log('\n✗ Disconnesso dal server');
+    rl.close();
+    process.exit(0);
+  };
+}
 
 function promptForName(): void {
   rl.question('Inserisci il tuo nome di giocatore: ', (input: string) => {
@@ -56,7 +71,7 @@ function promptForName(): void {
     }
 
     nameChosen = true;
-    socket.emit('setName', trimmed);
+    sendMessage('setName', trimmed);
   });
 }
 
@@ -71,14 +86,27 @@ function promptInput(): void {
 
     if (trimmed.toLowerCase() === 'exit' || trimmed.toLowerCase() === 'quit') {
       console.log('Arrivederci!');
-      socket.disconnect();
+      if (ws) {
+        ws.close();
+      }
       rl.close();
       process.exit(0);
     }
 
     // Send command to server
-    socket.emit('command', trimmed);
+    sendMessage('command', trimmed);
   });
 }
 
-console.log(`🎮 Connessione al server MUD su ${SERVER_URL}...`);
+function sendMessage(type: string, data: string): void {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    console.error('❌ Non connesso al server');
+    return;
+  }
+
+  const message: Message = { type, data };
+  ws.send(JSON.stringify(message));
+}
+
+// Start the client
+connect();
