@@ -69,6 +69,7 @@ export const ROOMS: Room[] = [
         name: 'porta della taverna',
       },
     },
+    items: ['550e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440006'],
   },
   {
     id: 'd1e2f3g4-h5i6-47j7-k8l9-m0n1o2p3q4r5',
@@ -78,7 +79,7 @@ export const ROOMS: Room[] = [
     exits: {
       west: 'b5c6d7e8-f9g0-47h1-i2j3-k4l5m6n7o8p9',
     },
-    items: ['550e8400-e29b-41d4-a716-446655440002'],
+    items: ['550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440007'],
   },
   {
     id: 'e2f3g4h5-i6j7-47k8-l9m0-n1o2p3q4r5s6',

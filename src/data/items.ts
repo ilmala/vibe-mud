@@ -32,6 +32,47 @@ export const ITEMS: Item[] = [
     type: 'furniture',
     takeable: false,
   },
+  {
+    id: '550e8400-e29b-41d4-a716-446655440005',
+    name: 'Pozione di Guarigione',
+    description: 'Una fiala di liquido rosso brillante che sembra pulsare di energia vitale.',
+    type: 'potion',
+    takeable: true,
+    weight: 0.3,
+    consumable: true,
+    effect: {
+      type: 'heal',
+      value: 20,
+      message: 'Un calore rigenerante si diffonde nel tuo corpo. Ti senti molto meglio! (+20 HP)',
+    },
+  },
+  {
+    id: '550e8400-e29b-41d4-a716-446655440006',
+    name: 'Pane Raffermo',
+    description: 'Un pezzo di pane duro come una pietra, ma ancora commestibile.',
+    type: 'food',
+    takeable: true,
+    weight: 0.2,
+    consumable: true,
+    effect: {
+      type: 'heal',
+      value: 5,
+      message: 'Non è granché, ma riempie lo stomaco. (+5 HP)',
+    },
+  },
+  {
+    id: '550e8400-e29b-41d4-a716-446655440007',
+    name: 'Pergamena della Conoscenza',
+    description: 'Una pergamena ingiallita coperta di antiche rune.',
+    type: 'scroll',
+    takeable: true,
+    weight: 0.1,
+    consumable: true,
+    effect: {
+      type: 'knowledge',
+      message: 'Le rune rivelano un segreto: "Il passaggio nascosto si apre solo quando la leva viene tirata."',
+    },
+  },
 ];
 
 export function getItemById(id: string): Item | undefined {
