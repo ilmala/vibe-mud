@@ -8,8 +8,11 @@ A real-time text-based multiplayer game server built with **TypeScript**, **Node
 - **Room-based Navigation**: Explore interconnected rooms with directional commands (nord, sud, est, ovest, su, giu)
 - **Player Communication**: Chat with other players in the same room
 - **Inventory System**: Pick up, drop, and examine items
+- **NPCs (Non-Player Characters)**: Interactive characters scattered throughout the world with dialogue system
+- **Monsters (Enemies)**: Combat-ready enemies with stats (HP, Attack, Defense) and loot drops (preparation for future combat system)
 - **Realistic Day-Night Cycle**: 6-phase cycle (00:00-24:00) that completes every 10 minutes with dynamic time tracking
 - **Interactive World**: Doors, hidden exits, triggers, and interactable objects
+- **Experience System**: Gain experience points through interactions and monster encounters
 - **Italian Localization**: All game text is in Italian
 
 ## Tech Stack
@@ -69,14 +72,16 @@ node dist/server.js
 - `vai <direction>` - Alternative movement syntax
 
 ### Interaction
-- `guarda` - Look around and see the current room description
-- `parla <message>` - Say something to other players in the room
+- `guarda` - Look around and see the current room description (shows NPCs, Monsters, and other players)
+- `dici <message>` - Say something to other players in the room
+- `parla [npc]` - Talk to an NPC and receive dialogue responses
+- `esamina <target>` - Examine a Monsters (shows stats and health), NPC, or object
 - `tempo` / `ora` - Check the current time and day phase
 - `prendi <item>` - Pick up an item
 - `rilascia <item>` - Drop an item from your inventory
 - `inventario` - View your inventory
-- `esamina <object>` - Examine an interactive object
 - `aiuto` - Display available commands
+- `esperienza` - Check your experience points
 
 ### Doors & Puzzles
 - `apri <direction>` - Open a door
@@ -102,16 +107,31 @@ All players receive notifications when the time phase changes, and room descript
 ```
 src/
 ├── server.ts              # Main entry point, Socket.io setup, connection handling
-├── models/                # TypeScript interfaces (Room, Player, etc.)
-├── data/                  # World data (world.ts - room definitions)
+├── models/                # TypeScript interfaces
+│   ├── Player.ts          # Player interface
+│   ├── Room.ts            # Room interface
+│   ├── Item.ts            # Item interface
+│   ├── NPC.ts             # NPC character interface
+│   └── Monster.ts         # Monster/Enemy interface
+├── data/                  # Static world data
+│   ├── world.ts           # Room definitions and connections
+│   ├── items.ts           # Item definitions
+│   ├── npcs.ts            # NPC character definitions
+│   └── monsters.ts        # Monster/Enemy definitions
 ├── engine/                # Game logic
 │   ├── gameTime.ts        # Day-night cycle system
 │   ├── parser.ts          # Command parser
 │   ├── gameLogic.ts       # Command execution logic
-│   ├── commands/          # Command handlers
+│   ├── npcs.ts            # NPC runtime tracking
+│   ├── monsters.ts        # Monster runtime tracking and HP system
 │   ├── items.ts           # Item system
 │   ├── doors.ts           # Door mechanics
 │   ├── triggers.ts        # World events
+│   ├── experience.ts      # Experience system utilities
+│   ├── commands/          # Command handlers
+│   │   ├── movement/      # Movement commands
+│   │   ├── interaction/   # Interaction commands (look, examine, talk, etc.)
+│   │   └── system/        # System commands (help, time, experience)
 │   └── utils.ts           # Utility functions
 ```
 
@@ -123,9 +143,44 @@ The engine uses Socket.io's native room system for efficient message broadcastin
 ### Game Loop
 The game runs a tick system that executes every second to manage time progression and day-night cycle transitions.
 
+### NPCs (Non-Player Characters)
+NPCs are stateless characters that populate the world and provide dialogue interactions:
+
+- **Static Definitions**: NPCs are defined in `src/data/npcs.ts` with unique IDs, names, descriptions, and dialogue options
+- **Display**: NPCs appear in room descriptions alongside monsters and players in the `[Presenti: ...]` section with emoji identifiers (🛡️, 🍺, etc.)
+- **Interactions**: Players can talk to NPCs using the `parla` command to receive random dialogue responses
+- **Runtime Tracking**: NPC positions can be tracked and changed dynamically using the `moveNPC()` function
+- **Future Enhancement**: NPCs can be extended with AI behaviors, quest systems, or trading mechanics
+
+### Monsters (Enemies)
+Monsters are combat-ready enemies with statistics preparing for a future combat system:
+
+- **Combat Stats**: Each monster has maxHP, attack damage, defense armor, and experience drops
+- **Dynamic HP**: Current HP is tracked at runtime separately from max HP, allowing damage tracking
+- **Display**: Monsters appear with hostile emoji (💀, 🐺, 🟢, etc.) in the `[Presenti: ...]` section, showing health bar when wounded `(35/50 HP)`
+- **Loot System**: Monsters can carry items in their inventory that would be dropped when defeated
+- **Examination**: Players can use `esamina` to view full monster stats including health bar, attack/defense values, XP drops, and possible loot
+- **Future Combat**: The `setMonsterHp()`, `moveMonster()`, and `isMonsterAlive()` functions prepare the architecture for implementing attack commands and combat mechanics
+
+### Present Room Display
+When players use the `guarda` command, they see a unified `[Presenti: ...]` section showing all creatures in the room:
+```
+[Presenti: 💀 Scheletro Guerriero (35/50 HP), 🐺 Lupo Feroce, 🛡️ Guardia del Tempio, Mario, Sofia]
+```
+- **Monsters**: Listed first with hostile emoji and current HP (if wounded)
+- **NPCs**: Listed second with friendly emoji
+- **Players**: Listed last without emoji
+
 ## Contributing
 
-Feel free to extend the game with new features, rooms, items, and mechanics!
+Feel free to extend the game with:
+- New NPCs in `src/data/npcs.ts`
+- New Monsters in `src/data/monsters.ts`
+- Combat system implementation using `AttackCommand`
+- Monster AI behaviors and random movement
+- Quest systems with NPC interactions
+- Trading mechanics and merchant systems
+- New rooms, items, and game mechanics
 
 ## License
 

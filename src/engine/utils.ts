@@ -15,7 +15,12 @@ function directionToItalian(direction: string): string {
   return map[direction] || direction;
 }
 
-export function getRoomDescription(roomId: string, otherPlayers?: string[]): string {
+export function getRoomDescription(
+  roomId: string,
+  otherPlayers?: string[],
+  npcsInRoom?: Array<{name: string; emoji?: string}>,
+  monstersInRoom?: Array<{name: string; emoji?: string; currentHp: number; maxHp: number}>
+): string {
   const room = getRoomById(roomId);
   if (!room) {
     return 'Stanza non trovata.';
@@ -60,9 +65,35 @@ export function getRoomDescription(roomId: string, otherPlayers?: string[]): str
     }
   }
 
-  let playersText = '';
+  let presentiText = '';
+  const presenti: string[] = [];
+
+  // Add monsters first (with emoji)
+  if (monstersInRoom && monstersInRoom.length > 0) {
+    monstersInRoom.forEach(monster => {
+      const emoji = monster.emoji || '👹';
+      // Show HP only if wounded
+      const hpPercent = (monster.currentHp / monster.maxHp) * 100;
+      const hpIndicator = hpPercent < 100 ? ` (${monster.currentHp}/${monster.maxHp} HP)` : '';
+      presenti.push(`${emoji} ${monster.name}${hpIndicator}`);
+    });
+  }
+
+  // Add NPCs (with emoji)
+  if (npcsInRoom && npcsInRoom.length > 0) {
+    npcsInRoom.forEach(npc => {
+      const npcDisplay = npc.emoji ? `${npc.emoji} ${npc.name}` : npc.name;
+      presenti.push(npcDisplay);
+    });
+  }
+
+  // Add players (without emoji)
   if (otherPlayers && otherPlayers.length > 0) {
-    playersText = `\n[Presenti: ${otherPlayers.join(', ')}]`;
+    presenti.push(...otherPlayers);
+  }
+
+  if (presenti.length > 0) {
+    presentiText = `\n[Presenti: ${presenti.join(', ')}]`;
   }
 
   // Add interactables info
@@ -89,5 +120,5 @@ export function getRoomDescription(roomId: string, otherPlayers?: string[]): str
   }
 
   const phaseIcon = getPhaseIcon(getCurrentPhase());
-  return `${phaseIcon} ${room.title}\n\n${room.description}${exitsText}${doorsText}${interactablesText}${itemsText}${playersText}`;
+  return `${phaseIcon} ${room.title}\n\n${room.description}${exitsText}${doorsText}${interactablesText}${itemsText}${presentiText}`;
 }

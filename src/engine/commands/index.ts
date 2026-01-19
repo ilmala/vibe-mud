@@ -1,12 +1,12 @@
 export { CommandHandler, CommandContext, CommandResult } from './CommandHandler';
 export { CommandRegistry } from './CommandRegistry';
 export { DirectionCommand, MoveCommand } from './movement';
-export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand } from './interaction';
+export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand } from './interaction';
 export { HelpCommand, TimeCommand, ExperienceCommand } from './system';
 
 import { CommandRegistry } from './CommandRegistry';
 import { DirectionCommand, MoveCommand } from './movement';
-import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand } from './interaction';
+import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand } from './interaction';
 import { HelpCommand, TimeCommand, ExperienceCommand } from './system';
 
 export function initializeCommands(): CommandRegistry {
@@ -37,6 +37,7 @@ export function initializeCommands(): CommandRegistry {
   const dropHandler = new DropCommand();
   const inventoryHandler = new InventoryCommand();
   const examineHandler = new ExamineCommand();
+  const parlaHandler = new ParlaCommand();
   const timeHandler = new TimeCommand();
   const experienceHandler = new ExperienceCommand();
 
@@ -53,6 +54,7 @@ export function initializeCommands(): CommandRegistry {
     dropHandler,
     inventoryHandler,
     examineHandler,
+    parlaHandler,
     timeHandler,
     experienceHandler
   ]);

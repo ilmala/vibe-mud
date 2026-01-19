@@ -1,6 +1,8 @@
 import { Command } from './parser';
 import { initializeCommands, CommandContext } from './commands';
 import { getRoomDescription } from './utils';
+import { getNPCsInRoom } from './npcs';
+import { getMonstersInRoom } from './monsters';
 
 const registry = initializeCommands();
 
@@ -32,11 +34,16 @@ export function handleCommand(
     }
   }
 
+  const npcsInRoom = getNPCsInRoom(currentRoomId);
+  const monstersInRoom = getMonstersInRoom(currentRoomId);
+
   const context: CommandContext = {
     playerId,
     playerName,
     currentRoomId,
     otherPlayersInRoom,
+    npcsInRoom,
+    monstersInRoom,
     command: finalCmd, // Pass the actual command used
     playerInventory,
     maxWeight,
