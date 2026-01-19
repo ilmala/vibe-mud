@@ -1,3 +1,17 @@
+import type { EquipmentSlot } from './Item';
+
+export interface PlayerEquipment {
+  rightHand?: string;
+  leftHand?: string;
+  armor?: string;
+  helmet?: string;
+  boots?: string;
+  gloves?: string;
+  ring1?: string;
+  ring2?: string;
+  amulet?: string;
+}
+
 export interface Player {
   id: string; // Socket.io connection ID
   name: string;
@@ -13,4 +27,7 @@ export interface Player {
   currentHp?: number; // Current hit points (defaults to maxHp if not set)
   attack: number; // Base attack damage
   defense: number; // Damage reduction/armor value
+
+  // Equipment system
+  equipment: PlayerEquipment;
 }

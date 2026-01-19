@@ -5,6 +5,7 @@ import { getNPCsInRoom } from '../../npcs';
 import { getNPCByName } from '../../../data/npcs';
 import { getMonstersInRoom } from '../../monsters';
 import { getMonsterByName } from '../../../data/monsters';
+import { getSlotName } from '../../equipment';
 
 export class ExamineCommand implements CommandHandler {
   name = 'esamina';
@@ -106,9 +107,20 @@ export class ExamineCommand implements CommandHandler {
 
     const locationText = location === 'inventario' ? '(nel tuo inventario)' : '(nella stanza)';
 
+    // Build stats text if item is equipable
+    let statsText = '';
+    if (item.equipable && item.stats) {
+      statsText = '\n\n💪 Statistiche:';
+      if (item.stats.attack) statsText += `\n  ⚔️  Attacco: +${item.stats.attack}`;
+      if (item.stats.defense) statsText += `\n  🛡️  Difesa: +${item.stats.defense}`;
+      if (item.stats.maxHp) statsText += `\n  ❤️  Vita: +${item.stats.maxHp}`;
+      if (item.slot) statsText += `\n📍 Slot: ${getSlotName(item.slot)}`;
+      if (item.twoHanded) statsText += `\n🤝 A due mani`;
+    }
+
     return {
       type: 'info',
-      message: `🔍 ${item.name} ${locationText}\n\n${item.description}`,
+      message: `🔍 ${item.name} ${locationText}\n\n${item.description}${statsText}`,
     };
   }
 

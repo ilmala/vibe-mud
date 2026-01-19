@@ -10,6 +10,16 @@ import { initNPCTracking } from './engine/npcs';
 import { initMonsterTracking } from './engine/monsters';
 import { registerItemPickup, consumeItem } from './engine/items';
 import { generateStatusBar } from './engine/utils';
+import {
+  equipItem,
+  unequipItem,
+  calculateEffectiveStats,
+  isItemEquipped,
+  getEquippedSlot,
+  getSlotName,
+  getSlotEmoji,
+} from './engine/equipment';
+import { getItemById } from './data/items';
 
 const PORT = process.env.PORT || 3000;
 
@@ -66,13 +76,13 @@ function sendToPlayer(playerId: string, message: string): void {
   }
 }
 
-// Helper: Send message to a player with status bar (level + HP)
+// Helper: Send message to a player with status bar (level + HP + stats)
 function sendToPlayerWithStatus(playerId: string, message: string): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const currentHp = player.currentHp ?? player.maxHp;
-  const statusBar = generateStatusBar(player.level, currentHp, player.maxHp);
+  const statusBar = generateStatusBar(player.level, currentHp, player.maxHp, player.attack, player.defense);
   const fullMessage = message + statusBar;
 
   sendToPlayer(playerId, fullMessage);
@@ -157,7 +167,8 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
         player.inventory,
         player.maxWeight,
         player.experience,
-        player.level
+        player.level,
+        player.equipment
       );
       sendToPlayerWithStatus(playerId, `${lookResult.message}`);
 
@@ -183,7 +194,8 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
         player.inventory,
         player.maxWeight,
         player.experience,
-        player.level
+        player.level,
+        player.equipment
       );
 
       if (result.type === 'move' && result.newRoomId) {
@@ -220,7 +232,8 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           player.inventory,
           player.maxWeight,
           player.experience,
-          player.level
+          player.level,
+          player.equipment
         );
 
         // Send new room to player
@@ -272,6 +285,21 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           broadcastToRoom(player.roomId, `\n📦 ${result.broadcastMessage}`, playerId);
         }
       } else if (result.type === 'drop' && result.itemId) {
+        // Auto-unequip if equipped
+        if (isItemEquipped(player.equipment, result.itemId)) {
+          const slot = getEquippedSlot(player.equipment, result.itemId);
+          if (slot) {
+            const unequipResult = unequipItem(player.equipment, slot);
+            player.equipment = unequipResult.equipment;
+
+            const effectiveStats = calculateEffectiveStats(10, 5, 100, player.equipment);
+            player.maxHp = effectiveStats.maxHp;
+            player.attack = effectiveStats.attack;
+            player.defense = effectiveStats.defense;
+            player.currentHp = Math.min(player.currentHp ?? 100, player.maxHp);
+          }
+        }
+
         const index = player.inventory.indexOf(result.itemId);
         if (index > -1) {
           player.inventory.splice(index, 1);
@@ -281,6 +309,130 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n📦 ${result.broadcastMessage}`, playerId);
         }
+      } else if (result.type === 'equip' && result.itemId) {
+        const equipResult = equipItem(
+          player.equipment,
+          player.inventory,
+          result.itemId
+        );
+
+        if (!equipResult.success) {
+          sendToPlayerWithStatus(playerId, `\n❌ ${equipResult.message}`);
+        } else {
+          player.equipment = equipResult.equipment;
+
+          // Recalcola stats effettive
+          const effectiveStats = calculateEffectiveStats(
+            10,
+            5,
+            100,
+            player.equipment
+          );
+
+          // Aumenta HP se maxHp è aumentato
+          if (player.maxHp < effectiveStats.maxHp) {
+            const hpGain = effectiveStats.maxHp - player.maxHp;
+            player.currentHp = (player.currentHp ?? player.maxHp) + hpGain;
+          }
+
+          player.maxHp = effectiveStats.maxHp;
+          player.attack = effectiveStats.attack;
+          player.defense = effectiveStats.defense;
+
+          sendToPlayerWithStatus(playerId, `\n✅ ${equipResult.message}`);
+        }
+      } else if (result.type === 'unequip' && result.slot) {
+        const unequipResult = unequipItem(player.equipment, result.slot);
+
+        if (!unequipResult.success) {
+          sendToPlayerWithStatus(playerId, `\n❌ ${unequipResult.message}`);
+        } else {
+          player.equipment = unequipResult.equipment;
+
+          // Recalcola stats
+          const effectiveStats = calculateEffectiveStats(10, 5, 100, player.equipment);
+          player.maxHp = effectiveStats.maxHp;
+          player.attack = effectiveStats.attack;
+          player.defense = effectiveStats.defense;
+
+          // Clamp HP se maxHp diminuito
+          player.currentHp = Math.min(player.currentHp ?? 100, player.maxHp);
+
+          sendToPlayerWithStatus(playerId, `\n✅ ${unequipResult.message}`);
+        }
+      } else if (result.type === 'unequip_by_name' && result.itemName) {
+        const itemName = result.itemName.toLowerCase();
+
+        // Cerca item equipaggiato per nome
+        let found = false;
+        for (const [slotKey, itemId] of Object.entries(player.equipment)) {
+          if (!itemId) continue;
+          const item = getItemById(itemId);
+          if (item?.name.toLowerCase().includes(itemName)) {
+            const slot = slotKey as any;
+            const unequipResult = unequipItem(player.equipment, slot);
+
+            player.equipment = unequipResult.equipment;
+            const effectiveStats = calculateEffectiveStats(10, 5, 100, player.equipment);
+            player.maxHp = effectiveStats.maxHp;
+            player.attack = effectiveStats.attack;
+            player.defense = effectiveStats.defense;
+            player.currentHp = Math.min(player.currentHp ?? 100, player.maxHp);
+
+            sendToPlayerWithStatus(playerId, `\n✅ ${unequipResult.message}`);
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          sendToPlayerWithStatus(playerId, `\n❌ Non hai "${result.itemName}" equipaggiato.`);
+        }
+      } else if (result.type === 'show_stats') {
+        const effectiveStats = calculateEffectiveStats(10, 5, 100, player.equipment);
+
+        let msg = `📊 Statistiche di ${player.name}\n\n`;
+        msg += `⭐ Livello: ${player.level}\n`;
+        msg += `❤️  Vita: ${player.currentHp}/${effectiveStats.maxHp}`;
+        if (effectiveStats.breakdown.maxHp.bonus > 0) {
+          msg += ` (+${effectiveStats.breakdown.maxHp.bonus})`;
+        }
+        msg += `\n⚔️  Attacco: ${effectiveStats.attack}`;
+        if (effectiveStats.breakdown.attack.bonus > 0) {
+          msg += ` (+${effectiveStats.breakdown.attack.bonus})`;
+        }
+        msg += `\n🛡️  Difesa: ${effectiveStats.defense}`;
+        if (effectiveStats.breakdown.defense.bonus > 0) {
+          msg += ` (+${effectiveStats.breakdown.defense.bonus})`;
+        }
+
+        msg += `\n\n⚔️ Equipaggiamento:\n`;
+        const slots: (keyof typeof player.equipment)[] = [
+          'rightHand',
+          'leftHand',
+          'armor',
+          'helmet',
+          'boots',
+          'gloves',
+          'ring1',
+          'ring2',
+          'amulet',
+        ];
+
+        slots.forEach(slot => {
+          const itemId = player.equipment[slot];
+          const emoji = getSlotEmoji(slot as any);
+          const slotName = getSlotName(slot as any);
+
+          if (itemId) {
+            const item = getItemById(itemId);
+            msg += `  ${emoji} ${slotName}: ${item?.name || '?'}\n`;
+          } else {
+            msg += `  ${emoji} ${slotName}: -\n`;
+          }
+        });
+
+        sendToPlayerWithStatus(playerId, `\n${msg}`);
       } else if (result.consumedItemId && result.type === 'consume_item') {
         // Handle item consumption
         const index = player.inventory.indexOf(result.consumedItemId);
@@ -355,6 +507,7 @@ const server: any = Bun.serve({
         currentHp: 100,
         attack: 10,
         defense: 5,
+        equipment: {},
       };
 
       players.set(playerId, player);

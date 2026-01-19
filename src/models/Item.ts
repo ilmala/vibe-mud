@@ -1,3 +1,13 @@
+export type EquipmentSlot =
+  | 'rightHand' | 'leftHand' | 'armor' | 'helmet'
+  | 'boots' | 'gloves' | 'ring1' | 'ring2' | 'amulet';
+
+export interface EquipmentStats {
+  attack?: number;
+  defense?: number;
+  maxHp?: number;
+}
+
 export interface Item {
   id: string;           // Unique UUID
   name: string;         // Display name
@@ -11,4 +21,8 @@ export interface Item {
     value?: number;     // HP healed, buff value, etc.
     message?: string;   // Message displayed when consumed
   };
+  equipable?: boolean;  // Whether it can be equipped
+  slot?: EquipmentSlot; // Equipment slot it occupies
+  stats?: EquipmentStats; // Bonus statistics when equipped
+  twoHanded?: boolean;  // Whether it occupies both hands
 }

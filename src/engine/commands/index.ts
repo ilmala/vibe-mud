@@ -1,12 +1,12 @@
 export { CommandRegistry } from './CommandRegistry';
 export { DirectionCommand, MoveCommand } from './movement';
-export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand } from './interaction';
-export { HelpCommand, TimeCommand, ExperienceCommand } from './system';
+export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand, EquipCommand, UnequipCommand } from './interaction';
+export { HelpCommand, TimeCommand, ExperienceCommand, StatsCommand } from './system';
 
 import { CommandRegistry } from './CommandRegistry';
 import { DirectionCommand, MoveCommand } from './movement';
-import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand } from './interaction';
-import { HelpCommand, TimeCommand, ExperienceCommand } from './system';
+import { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand, EquipCommand, UnequipCommand } from './interaction';
+import { HelpCommand, TimeCommand, ExperienceCommand, StatsCommand } from './system';
 
 export function initializeCommands(): CommandRegistry {
   const registry = new CommandRegistry();
@@ -40,7 +40,10 @@ export function initializeCommands(): CommandRegistry {
   const beviHandler = new BeviCommand();
   const mangiaHandler = new MangiaCommand();
   const leggiHandler = new LeggiCommand();
+  const equipHandler = new EquipCommand();
+  const unequipHandler = new UnequipCommand();
   const timeHandler = new TimeCommand();
+  const statsHandler = new StatsCommand();
   const experienceHandler = new ExperienceCommand();
 
   // Register non-help commands first
@@ -60,7 +63,10 @@ export function initializeCommands(): CommandRegistry {
     beviHandler,
     mangiaHandler,
     leggiHandler,
+    equipHandler,
+    unequipHandler,
     timeHandler,
+    statsHandler,
     experienceHandler
   ]);
 

@@ -1,6 +1,7 @@
 import { Command } from './parser';
 import { initializeCommands } from './commands';
 import type { CommandContext } from './commands/CommandHandler';
+import type { PlayerEquipment } from '../models';
 import { getRoomDescription } from './utils';
 import { calculateLevel } from './experience';
 import { getNPCsInRoom } from './npcs';
@@ -19,7 +20,8 @@ export function handleCommand(
   playerInventory?: string[],
   maxWeight?: number,
   playerExperience?: number,
-  playerLevel?: number
+  playerLevel?: number,
+  playerEquipment?: PlayerEquipment
 ) {
   let finalCmd = command.cmd;
   let finalArg = command.arg;
@@ -55,6 +57,7 @@ export function handleCommand(
     maxWeight,
     playerExperience,
     playerLevel: finalLevel,
+    playerEquipment,
   };
   return registry.execute(finalCmd, finalArg, context);
 }

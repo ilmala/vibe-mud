@@ -1,3 +1,5 @@
+import type { PlayerEquipment, EquipmentSlot } from '../../models';
+
 export interface CommandContext {
   playerId: string;
   playerName: string;
@@ -10,6 +12,7 @@ export interface CommandContext {
   maxWeight?: number; // Maximum weight the player can carry in kg
   playerExperience?: number; // Player experience points
   playerLevel?: number; // Player current level
+  playerEquipment?: PlayerEquipment; // Player equipment slots
 }
 
 export interface CommandResult {
@@ -24,6 +27,8 @@ export interface CommandResult {
   broadcastMessage?: string; // Message to broadcast to other players in the room
   itemId?: string; // For pickup/drop commands to communicate item ID to server
   consumedItemId?: string; // For consumable items (potions, food, etc) to signal removal and respawn
+  slot?: EquipmentSlot; // For unequip commands
+  itemName?: string; // For unequip by name
 }
 
 export interface CommandHandler {

@@ -1,3 +1,5 @@
+import type { PlayerEquipment } from './Player';
+
 export interface Monster {
   id: string; // Unique UUID (generated, not socket-based)
   name: string; // Display name
@@ -14,6 +16,9 @@ export interface Monster {
 
   // Loot system
   inventory: string[]; // Array of item IDs to drop when killed
+
+  // Equipment system
+  equipment?: PlayerEquipment;
 
   // Classification
   type?: string; // Optional category (undead, beast, demon, ooze, etc.)

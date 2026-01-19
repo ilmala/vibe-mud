@@ -11,3 +11,5 @@ export { ParlaCommand } from './ParlaCommand';
 export { BeviCommand } from './BeviCommand';
 export { MangiaCommand } from './MangiaCommand';
 export { LeggiCommand } from './LeggiCommand';
+export { EquipCommand } from './EquipCommand';
+export { UnequipCommand } from './UnequipCommand';

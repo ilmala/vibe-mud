@@ -128,9 +128,17 @@ export function getRoomDescription(
  * @param level Player level
  * @param currentHp Current hit points
  * @param maxHp Maximum hit points
+ * @param attack Optional attack stat
+ * @param defense Optional defense stat
  * @returns Formatted status bar string
  */
-export function generateStatusBar(level: number, currentHp: number, maxHp: number): string {
+export function generateStatusBar(
+  level: number,
+  currentHp: number,
+  maxHp: number,
+  attack?: number,
+  defense?: number
+): string {
   const hpPercent = (currentHp / maxHp) * 100;
   const barLength = 15;
   const filledBars = Math.round((currentHp / maxHp) * barLength);
@@ -147,5 +155,10 @@ export function generateStatusBar(level: number, currentHp: number, maxHp: numbe
     hpStatus = '🟢'; // Good
   }
 
-  return `\n┌──────────────────────────────────┐\n│ Lvl ${level.toString().padEnd(2)} │ ${hpStatus} HP: [${hpBar}] ${currentHp}/${maxHp}\n└──────────────────────────────────┘`;
+  let statsLine = '';
+  if (attack !== undefined && defense !== undefined) {
+    statsLine = `\n│ ⚔️  ${attack.toString().padStart(2)} │ 🛡️  ${defense.toString().padStart(2)}`;
+  }
+
+  return `\n┌──────────────────────────────────┐\n│ Lvl ${level.toString().padEnd(2)} │ ${hpStatus} HP: [${hpBar}] ${currentHp}/${maxHp}${statsLine}\n└──────────────────────────────────┘`;
 }

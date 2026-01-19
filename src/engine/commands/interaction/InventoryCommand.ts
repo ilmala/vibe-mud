@@ -1,5 +1,6 @@
 import { CommandHandler, CommandContext, CommandResult } from '../CommandHandler';
 import { getItemById, calculateTotalWeight, formatWeight } from '../../../data/items';
+import { isItemEquipped } from '../../equipment';
 
 export class InventoryCommand implements CommandHandler {
   name = 'inventario';
@@ -16,12 +17,15 @@ export class InventoryCommand implements CommandHandler {
       };
     }
 
+    const equipment = context.playerEquipment || {};
     const itemDescriptions = context.playerInventory
       .map(id => {
         const item = getItemById(id);
         if (!item) return null;
         const weight = item.weight ?? 0.5;
-        return `  📦 ${item.name} (${formatWeight(weight)})`;
+        const equipped = isItemEquipped(equipment, id);
+        const equippedMark = equipped ? ' ⚔️ [EQUIPAGGIATO]' : '';
+        return `  📦 ${item.name} (${formatWeight(weight)})${equippedMark}`;
       })
       .filter(desc => desc !== null);
 
