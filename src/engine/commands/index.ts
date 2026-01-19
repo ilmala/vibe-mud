@@ -1,4 +1,3 @@
-export { CommandHandler, CommandContext, CommandResult } from './CommandHandler';
 export { CommandRegistry } from './CommandRegistry';
 export { DirectionCommand, MoveCommand } from './movement';
 export { LookCommand, SayCommand, InteractCommand, OpenDoorCommand, CloseDoorCommand, PickupCommand, DropCommand, InventoryCommand, ExamineCommand, ParlaCommand, BeviCommand, MangiaCommand, LeggiCommand } from './interaction';

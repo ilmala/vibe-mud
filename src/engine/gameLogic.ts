@@ -1,5 +1,6 @@
 import { Command } from './parser';
-import { initializeCommands, CommandContext } from './commands';
+import { initializeCommands } from './commands';
+import type { CommandContext } from './commands/CommandHandler';
 import { getRoomDescription } from './utils';
 import { getNPCsInRoom } from './npcs';
 import { getMonstersInRoom } from './monsters';

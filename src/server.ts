@@ -1,6 +1,4 @@
-import express from 'express';
-import { Server } from 'socket.io';
-import { createServer } from 'http';
+import { v4 as uuidv4 } from 'uuid';
 import { Player, Room, NPC, Monster } from './models';
 import { STARTING_ROOM } from './data/world';
 import { NPCS } from './data/npcs';
@@ -12,16 +10,15 @@ import { initNPCTracking } from './engine/npcs';
 import { initMonsterTracking } from './engine/monsters';
 import { registerItemPickup, consumeItem } from './engine/items';
 
-const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
-});
-
 const PORT = process.env.PORT || 3000;
+
+// Type for WebSocket data attached to each connection
+type PlayerWebSocketData = {
+  playerId: string;
+};
+
+// Use Bun's ServerWebSocket type with our data type
+type BunWebSocket = any;  // Bun.ServerWebSocket<PlayerWebSocketData> - type definitions incomplete, use any for now
 
 // Helper function to get an opposite direction
 function getOppositeDirection(direction: string): string {
@@ -39,6 +36,12 @@ function getOppositeDirection(direction: string): string {
 // Store active players
 const players: Map<string, Player> = new Map();
 
+// Map WebSocket to Player ID for quick lookup
+const wsToPlayerId: Map<BunWebSocket, string> = new Map();
+
+// Map Player ID to WebSocket for sending messages
+const playerIdToWs: Map<string, BunWebSocket> = new Map();
+
 // Store NPC locations (runtime tracking)
 const npcLocations: Map<string, string> = new Map();
 
@@ -54,250 +57,31 @@ const MOTD = `
 Un mondo di avventure ti aspetta...
 `;
 
-io.on('connection', (socket) => {
-  console.log(`[${socket.id}] Un giocatore si è connesso`);
-
-  // Create new player with temporary name
-  const player: Player = {
-    id: socket.id,
-    name: 'Anonimo',
-    roomId: STARTING_ROOM,
-    socketId: socket.id,
-    inventory: [],
-    maxWeight: 50,
-    experience: 0,
-    // Combat stats
-    maxHp: 100,
-    currentHp: 100,
-    attack: 10,
-    defense: 5,
-  };
-
-  players.set(socket.id, player);
-
-  // Send MOTD
-  socket.emit('message', MOTD);
-
-  // Request player name
-  socket.emit('requestName');
-
-  // Listen for the name from a client
-  socket.once('setName', (playerName: string) => {
-    const trimmedName = playerName.trim().slice(0, 20);
-
-    if (!trimmedName) {
-      socket.emit('message', '❌ Il nome non può essere vuoto.');
-      socket.emit('requestName');
-      return;
-    }
-
-    // Update player name
-    player.name = trimmedName;
-    console.log(`[${socket.id}] Ha scelto il nome: ${player.name}`);
-
-    // Join the Socket.io room corresponding to the game room
-    socket.join(STARTING_ROOM);
-
-    // Send a welcome message with the player name
-    socket.emit('message', `\nBenvenuto ${player.name}!\n`);
-
-    // Show starting room with exits
-    const otherPlayersInStarting = Array.from(players.values())
-      .filter((p) => p.roomId === STARTING_ROOM && p.id !== player.id)
-      .map((p) => p.name);
-    const lookResult = handleCommand(
-      parseCommand('guarda'),
-      STARTING_ROOM,
-      player.id,
-      player.name,
-      otherPlayersInStarting,
-      player.inventory,
-      player.maxWeight,
-      player.experience
-    );
-    socket.emit('message', `${lookResult.message}`);
-
-    // Notify others that a player joined
-    socket.to(STARTING_ROOM).emit('message', `\n[${player.name} è entrato nella stanza]`);
-
-    // Set up command and chat listeners
-    setupPlayerListeners(socket, player);
-  });
-
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    const player = players.get(socket.id);
-    if (player) {
-      console.log(`[${socket.id}] ${player.name} si è disconnesso`);
-      io.to(player.roomId).emit('message', `\n[${player.name} se ne è andato]`);
-      players.delete(socket.id);
-    }
-  });
-});
-
-function setupPlayerListeners(socket: any, player: Player): void {
-  // Handle player commands
-  socket.on('command', (input: string) => {
-    console.log(`[${player.name}] Command: ${input}`);
-
-    const command = parseCommand(input);
-
-    // Raccolgo i giocatori nella stanza attuale
-    const otherPlayers = Array.from(players.values())
-      .filter((p) => p.roomId === player.roomId && p.id !== player.id)
-      .map((p) => p.name);
-
-    const result = handleCommand(
-      command,
-      player.roomId,
-      player.id,
-      player.name,
-      otherPlayers,
-      player.inventory,
-      player.maxWeight,
-      player.experience
-    );
-
-    if (result.type === 'move' && result.newRoomId) {
-      const oldRoomId = player.roomId;
-      const newRoomId = result.newRoomId;
-      const direction = result.direction;
-
-      // Notify other players in the old room (not the player who is leaving)
-      if (direction) {
-        socket.to(oldRoomId).emit('message', `\n[${player.name} è andato a ${direction}]`);
-      } else {
-        socket.to(oldRoomId).emit('message', `\n[${player.name} se ne è andato]`);
-      }
-
-      // Move player to the new Socket.io room
-      socket.leave(oldRoomId);
-      socket.join(newRoomId);
-
-      // Update player's room
-      player.roomId = newRoomId;
-
-      // Raccolgo i giocatori nella nuova stanza
-      const otherPlayersInNewRoom = Array.from(players.values())
-        .filter((p) => p.roomId === newRoomId && p.id !== player.id)
-        .map((p) => p.name);
-
-      // Get a full description with other players
-      const descriptionResult = handleCommand(
-        parseCommand('guarda'),
-        newRoomId,
-        player.id,
-        player.name,
-        otherPlayersInNewRoom,
-        player.inventory,
-        player.maxWeight,
-        player.experience
-      );
-
-      // Send new room description to player
-      socket.emit('message', `\nSei entrato in:\n\n${descriptionResult.message}`);
-
-      // Notify players in the new room
-      if (direction) {
-        const oppositeDirection = getOppositeDirection(direction);
-        socket.to(newRoomId).emit('message', `\n[${player.name} è arrivato da ${oppositeDirection}]`);
-      } else {
-        socket.to(newRoomId).emit('message', `\n[${player.name} è entrato nella stanza]`);
-      }
-    } else if (result.type === 'interact') {
-      // Notify player of their action
-      socket.emit('message', `\n${result.message}`);
-
-      // If a trigger was activated, notify all players in the room
-      if (result.triggerActivated?.globalMessage) {
-        io.to(player.roomId).emit('message', `\n🔧 ${result.triggerActivated.globalMessage}`);
-      }
-    } else if (result.type === 'look') {
-      socket.emit('message', `\n${result.message}`);
-    } else if (result.type === 'help') {
-      socket.emit('message', `\n${result.message}`);
-    } else if (result.type === 'say' && result.message) {
-      const fullMessage = `${player.name} dice: "${result.message}"`;
-      io.to(player.roomId).emit('message', `\n${fullMessage}`);
-      console.log(`[${player.name}] Say: ${result.message}`);
-    } else if (result.type === 'door' && result.consumedItemId) {
-      // Handle key consumption when opening a locked door (check BEFORE generic door handler)
-      const index = player.inventory.indexOf(result.consumedItemId);
-      if (index > -1) {
-        player.inventory.splice(index, 1);
-
-        // Schedule respawn
-        consumeItem(result.consumedItemId, io);
-      }
-
-      socket.emit('message', `\n${result.message}`);
-      if (result.broadcastMessage) {
-        io.to(player.roomId).emit('message', `\n🚪 ${result.broadcastMessage}`);
-      }
-    } else if (result.type === 'door') {
-      socket.emit('message', `\n${result.message}`);
-
-      if (result.broadcastMessage) {
-        io.to(player.roomId).emit('message', `\n🚪 ${result.broadcastMessage}`);
-      }
-    } else if (result.type === 'pickup' && result.itemId) {
-      // Add to player's inventory
-      player.inventory.push(result.itemId);
-
-      // Register the original room for this item (for respawn after consumption)
-      registerItemPickup(result.itemId, player.roomId);
-
-      socket.emit('message', `\n${result.message}`);
-      if (result.broadcastMessage) {
-        socket.to(player.roomId).emit('message', `\n📦 ${result.broadcastMessage}`);
-      }
-    } else if (result.type === 'drop' && result.itemId) {
-      // Remove from the player's inventory
-      const index = player.inventory.indexOf(result.itemId);
-      if (index > -1) {
-        player.inventory.splice(index, 1);
-      }
-
-      socket.emit('message', `\n${result.message}`);
-      if (result.broadcastMessage) {
-        socket.to(player.roomId).emit('message', `\n📦 ${result.broadcastMessage}`);
-      }
-    } else if (result.consumedItemId && result.type === 'consume_item') {
-      // Handle item consumption (potion, food, scroll)
-      const index = player.inventory.indexOf(result.consumedItemId);
-      if (index > -1) {
-        player.inventory.splice(index, 1);
-
-        // Schedule respawn
-        consumeItem(result.consumedItemId, io);
-      }
-
-      socket.emit('message', `\n${result.message}`);
-      if (result.broadcastMessage) {
-        io.to(player.roomId).emit('message', `\n${result.broadcastMessage}`);
-      }
-    } else if (result.type === 'info') {
-      // For inventory and examine commands
-      socket.emit('message', `\n${result.message}`);
-    } else if (result.type === 'error') {
-      socket.emit('message', `\n❌ ${result.message}`);
-    } else {
-      socket.emit('message', `\n❌ Comando sconosciuto.`);
-    }
-  });
-
-  // Handle chat messages
-  socket.on('say', (message: string) => {
-    const fullMessage = `${player.name} dice: "${message}"`;
-    io.to(player.roomId).emit('message', `\n${fullMessage}`);
-    console.log(`[${player.name}] Say: ${message}`);
-  });
+// Helper: Send message to a single player
+function sendToPlayer(playerId: string, message: string): void {
+  const ws = playerIdToWs.get(playerId);
+  if (ws && ws.readyState === 1) { // 1 = OPEN
+    ws.send(JSON.stringify({ type: 'message', data: message }));
+  }
 }
 
-// Initialize game time system
-initGameTime();
+// Helper: Broadcast to all players in a room (excluding sender if specified)
+function broadcastToRoom(roomId: string, message: string, excludePlayerId?: string): void {
+  for (const [playerId, player] of players.entries()) {
+    if (player.roomId === roomId && playerId !== excludePlayerId) {
+      sendToPlayer(playerId, message);
+    }
+  }
+}
 
-// Initialize NPCs
+// Helper: Send to all connected players
+function broadcastToAll(message: string): void {
+  for (const [playerId] of players.entries()) {
+    sendToPlayer(playerId, message);
+  }
+}
+
+// Initialize game data
 function initializeNPCs(): void {
   NPCS.forEach(npc => {
     npcLocations.set(npc.id, npc.roomId);
@@ -305,10 +89,6 @@ function initializeNPCs(): void {
   console.log(`🤖 Initialized ${NPCS.length} NPCs`);
 }
 
-initializeNPCs();
-initNPCTracking(npcLocations);
-
-// Initialize Monsters
 function initializeMonsters(): void {
   MONSTERS.forEach(monster => {
     monsterLocations.set(monster.id, monster.roomId);
@@ -317,22 +97,287 @@ function initializeMonsters(): void {
   console.log(`👹 Initialized ${MONSTERS.length} Monsters`);
 }
 
+// Handle incoming messages from client
+function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
+  try {
+    const data = typeof message === 'string' ? message : message.toString();
+    const parsed = JSON.parse(data);
+
+    const playerId = ws.data.playerId;
+    const player = players.get(playerId);
+
+    if (!player) {
+      ws.send(JSON.stringify({ type: 'error', data: 'Player not found' }));
+      return;
+    }
+
+    if (parsed.type === 'setName') {
+      const playerName = (parsed.data || '').trim().slice(0, 20);
+
+      if (!playerName) {
+        sendToPlayer(playerId, '❌ Il nome non può essere vuoto.');
+        ws.send(JSON.stringify({ type: 'requestName' }));
+        return;
+      }
+
+      // Update player name
+      player.name = playerName;
+      console.log(`[${playerId}] Ha scelto il nome: ${player.name}`);
+
+      // Subscribe to the starting room
+      ws.subscribe(`room:${STARTING_ROOM}`);
+      ws.subscribe(`player:${playerId}`);
+
+      // Send welcome message
+      sendToPlayer(playerId, `\nBenvenuto ${player.name}!\n`);
+
+      // Show starting room
+      const otherPlayersInStarting = Array.from(players.values())
+        .filter((p) => p.roomId === STARTING_ROOM && p.id !== player.id)
+        .map((p) => p.name);
+      const lookResult = handleCommand(
+        parseCommand('guarda'),
+        STARTING_ROOM,
+        player.id,
+        player.name,
+        otherPlayersInStarting,
+        player.inventory,
+        player.maxWeight,
+        player.experience
+      );
+      sendToPlayer(playerId, `${lookResult.message}`);
+
+      // Notify others that a player joined
+      broadcastToRoom(STARTING_ROOM, `\n[${player.name} è entrato nella stanza]`, playerId);
+    } else if (parsed.type === 'command') {
+      const input = parsed.data || '';
+      console.log(`[${player.name}] Command: ${input}`);
+
+      const command = parseCommand(input);
+
+      // Get other players in room
+      const otherPlayers = Array.from(players.values())
+        .filter((p) => p.roomId === player.roomId && p.id !== player.id)
+        .map((p) => p.name);
+
+      const result = handleCommand(
+        command,
+        player.roomId,
+        player.id,
+        player.name,
+        otherPlayers,
+        player.inventory,
+        player.maxWeight,
+        player.experience
+      );
+
+      if (result.type === 'move' && result.newRoomId) {
+        const oldRoomId = player.roomId;
+        const newRoomId = result.newRoomId;
+        const direction = result.direction;
+
+        // Notify other players in old room
+        if (direction) {
+          broadcastToRoom(oldRoomId, `\n[${player.name} è andato a ${direction}]`, playerId);
+        } else {
+          broadcastToRoom(oldRoomId, `\n[${player.name} se ne è andato]`, playerId);
+        }
+
+        // Unsubscribe from old room, subscribe to new room
+        ws.unsubscribe(`room:${oldRoomId}`);
+        ws.subscribe(`room:${newRoomId}`);
+
+        // Update player's room
+        player.roomId = newRoomId;
+
+        // Get other players in new room
+        const otherPlayersInNewRoom = Array.from(players.values())
+          .filter((p) => p.roomId === newRoomId && p.id !== player.id)
+          .map((p) => p.name);
+
+        // Get room description
+        const descriptionResult = handleCommand(
+          parseCommand('guarda'),
+          newRoomId,
+          player.id,
+          player.name,
+          otherPlayersInNewRoom,
+          player.inventory,
+          player.maxWeight,
+          player.experience
+        );
+
+        // Send new room to player
+        sendToPlayer(playerId, `\nSei entrato in:\n\n${descriptionResult.message}`);
+
+        // Notify players in new room
+        if (direction) {
+          const oppositeDirection = getOppositeDirection(direction);
+          broadcastToRoom(newRoomId, `\n[${player.name} è arrivato da ${oppositeDirection}]`, playerId);
+        } else {
+          broadcastToRoom(newRoomId, `\n[${player.name} è entrato nella stanza]`, playerId);
+        }
+      } else if (result.type === 'interact') {
+        sendToPlayer(playerId, `\n${result.message}`);
+        if (result.triggerActivated?.globalMessage) {
+          broadcastToRoom(player.roomId, `\n🔧 ${result.triggerActivated.globalMessage}`);
+        }
+      } else if (result.type === 'look') {
+        sendToPlayer(playerId, `\n${result.message}`);
+      } else if (result.type === 'help') {
+        sendToPlayer(playerId, `\n${result.message}`);
+      } else if (result.type === 'say' && result.message) {
+        const fullMessage = `${player.name} dice: "${result.message}"`;
+        broadcastToRoom(player.roomId, `\n${fullMessage}`);
+        console.log(`[${player.name}] Say: ${result.message}`);
+      } else if (result.type === 'door' && result.consumedItemId) {
+        // Handle key consumption
+        const index = player.inventory.indexOf(result.consumedItemId);
+        if (index > -1) {
+          player.inventory.splice(index, 1);
+          consumeItem(result.consumedItemId, { publish: (room: string, msg: string) => broadcastToRoom(room, msg) });
+        }
+
+        sendToPlayer(playerId, `\n${result.message}`);
+        if (result.broadcastMessage) {
+          broadcastToRoom(player.roomId, `\n🚪 ${result.broadcastMessage}`, playerId);
+        }
+      } else if (result.type === 'door') {
+        sendToPlayer(playerId, `\n${result.message}`);
+        if (result.broadcastMessage) {
+          broadcastToRoom(player.roomId, `\n🚪 ${result.broadcastMessage}`, playerId);
+        }
+      } else if (result.type === 'pickup' && result.itemId) {
+        player.inventory.push(result.itemId);
+        registerItemPickup(result.itemId, player.roomId);
+
+        sendToPlayer(playerId, `\n${result.message}`);
+        if (result.broadcastMessage) {
+          broadcastToRoom(player.roomId, `\n📦 ${result.broadcastMessage}`, playerId);
+        }
+      } else if (result.type === 'drop' && result.itemId) {
+        const index = player.inventory.indexOf(result.itemId);
+        if (index > -1) {
+          player.inventory.splice(index, 1);
+        }
+
+        sendToPlayer(playerId, `\n${result.message}`);
+        if (result.broadcastMessage) {
+          broadcastToRoom(player.roomId, `\n📦 ${result.broadcastMessage}`, playerId);
+        }
+      } else if (result.consumedItemId && result.type === 'consume_item') {
+        // Handle item consumption
+        const index = player.inventory.indexOf(result.consumedItemId);
+        if (index > -1) {
+          player.inventory.splice(index, 1);
+          consumeItem(result.consumedItemId, { publish: (room: string, msg: string) => broadcastToRoom(room, msg) });
+        }
+
+        sendToPlayer(playerId, `\n${result.message}`);
+        if (result.broadcastMessage) {
+          broadcastToRoom(player.roomId, `\n${result.broadcastMessage}`, playerId);
+        }
+      } else if (result.type === 'info') {
+        sendToPlayer(playerId, `\n${result.message}`);
+      } else if (result.type === 'error') {
+        sendToPlayer(playerId, `\n❌ ${result.message}`);
+      } else {
+        sendToPlayer(playerId, `\n❌ Comando sconosciuto.`);
+      }
+    } else if (parsed.type === 'say') {
+      const message = parsed.data || '';
+      const fullMessage = `${player.name} dice: "${message}"`;
+      broadcastToRoom(player.roomId, `\n${fullMessage}`);
+      console.log(`[${player.name}] Say: ${message}`);
+    }
+  } catch (error) {
+    console.error('Error handling message:', error);
+  }
+}
+
+// Initialize systems
+initGameTime();
+initializeNPCs();
+initNPCTracking(npcLocations);
 initializeMonsters();
 initMonsterTracking(monsterLocations, monsterHp);
 
-// Game tick system - runs every second
+// Game tick
 setInterval(() => {
   const tickResult = tick();
 
   if (tickResult.phaseChanged && tickResult.newPhase) {
-    // Broadcast phase change to all players
     const phaseMessage = getPhaseChangeMessage(tickResult.newPhase);
-    io.emit('message', `\n${phaseMessage}`);
-
+    broadcastToAll(`\n${phaseMessage}`);
     console.log(`[GAME TIME] Phase changed to: ${tickResult.newPhase}`);
   }
-}, 1000); // 1 second tick
+}, 1000);
 
-httpServer.listen(PORT, () => {
-  console.log(`🎮 Server MUD in ascolto su http://localhost:${PORT}`);
+// Start Bun server
+const server: any = Bun.serve({
+  port: PORT,
+  websocket: {
+    open(ws: BunWebSocket): void {
+      const playerId = uuidv4();
+      ws.data = { playerId };
+      wsToPlayerId.set(ws, playerId);
+      playerIdToWs.set(playerId, ws);
+
+      console.log(`[${playerId}] Un giocatore si è connesso`);
+
+      // Create new player
+      const player: Player = {
+        id: playerId,
+        name: 'Anonimo',
+        roomId: STARTING_ROOM,
+        socketId: playerId,
+        inventory: [],
+        maxWeight: 50,
+        experience: 0,
+        maxHp: 100,
+        currentHp: 100,
+        attack: 10,
+        defense: 5,
+      };
+
+      players.set(playerId, player);
+
+      // Send MOTD and request name
+      ws.send(JSON.stringify({ type: 'message', data: MOTD }));
+      ws.send(JSON.stringify({ type: 'requestName' }));
+    },
+
+    message(ws: BunWebSocket, message: string | Buffer): void {
+      handleMessage(ws, message);
+    },
+
+    close(ws: BunWebSocket): void {
+      const playerId = ws.data.playerId;
+      const player = players.get(playerId);
+
+      if (player) {
+        console.log(`[${playerId}] ${player.name} si è disconnesso`);
+        broadcastToRoom(player.roomId, `\n[${player.name} se ne è andato]`);
+        players.delete(playerId);
+      }
+
+      wsToPlayerId.delete(ws);
+      playerIdToWs.delete(playerId);
+    },
+  },
+
+  fetch(req: Request): Response | Promise<Response> {
+    // Upgrade WebSocket connections
+    if (req.url.endsWith('/ws')) {
+      const upgraded: any = server.upgrade(req);
+      if (upgraded) return upgraded;
+    }
+
+    return new Response('Not found', { status: 404 });
+  },
 });
+
+// Store server globally for helpers to access
+(globalThis as any).bunServer = server;
+
+console.log(`🎮 Server MUD in ascolto su ws://localhost:${PORT}/ws`);
