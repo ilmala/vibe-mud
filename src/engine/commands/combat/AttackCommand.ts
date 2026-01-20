@@ -11,10 +11,11 @@ export class AttackCommand implements CommandHandler {
   execute(arg: string, context: CommandContext): CommandResult {
     // Check if player is already in combat
     if (isPlayerInCombat(context.playerId)) {
-      // Continue ongoing combat - attack current target
+      // In automatic turn-based system, attacks happen automatically
+      // Players can't manually trigger attacks - they use defend/flee instead
       return {
-        type: 'combat_attack',
-        combatAction: 'attack',
+        type: 'info',
+        message: 'L\'attacco è automatico ogni turno! Se vuoi, usa: difenditi, fuggi, bevi <pozione>',
       };
     }
 

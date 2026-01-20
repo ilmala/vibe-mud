@@ -72,10 +72,15 @@ export function getRoomDescription(
   if (monstersInRoom && monstersInRoom.length > 0) {
     monstersInRoom.forEach(monster => {
       const emoji = monster.emoji || '👹';
-      // Show HP only if wounded
-      const hpPercent = (monster.currentHp / monster.maxHp) * 100;
-      const hpIndicator = hpPercent < 100 ? ` (${monster.currentHp}/${monster.maxHp} HP)` : '';
-      presenti.push(`${emoji} ${monster.name}${hpIndicator}`);
+      // Show corpse if dead
+      if (monster.currentHp <= 0) {
+        presenti.push(`💀 Cadavere di ${monster.name}`);
+      } else {
+        // Show HP only if wounded
+        const hpPercent = (monster.currentHp / monster.maxHp) * 100;
+        const hpIndicator = hpPercent < 100 ? ` (${monster.currentHp}/${monster.maxHp} HP)` : '';
+        presenti.push(`${emoji} ${monster.name}${hpIndicator}`);
+      }
     });
   }
 

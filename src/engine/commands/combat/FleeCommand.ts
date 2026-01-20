@@ -20,8 +20,9 @@ export class FleeCommand implements CommandHandler {
     }
 
     return {
-      type: 'combat_flee',
+      type: 'combat_queue_action',
       combatAction: 'flee',
+      message: 'Fuggirai dal combattimento nel prossimo turno!',
     };
   }
 }

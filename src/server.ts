@@ -35,6 +35,11 @@ import {
   isPlayerTurn,
   isOpponentDefending,
   switchTurn,
+  queuePlayerAction,
+  processCombatTurn,
+  isTurnExpired,
+  getActiveCombatsForTick,
+  getRemainingTurnTime,
 } from './engine/combat';
 import { addItemToRoom } from './engine/items';
 
@@ -118,6 +123,86 @@ function broadcastToRoom(roomId: string, message: string, excludePlayerId?: stri
 function broadcastToAll(message: string): void {
   for (const [playerId] of players.entries()) {
     sendToPlayer(playerId, message);
+  }
+}
+
+// Helper: Handle combat turn result
+function handleCombatTurnResult(
+  result: any, // CombatTurnResult
+  combat: any, // CombatSession
+  player: any, // Player
+  monster: any // Monster
+): void {
+  // Update HP
+  player.currentHp = result.playerHp;
+  setMonsterHp(combat.defenderId, result.monsterHp);
+
+  // Send messages to player
+  if (result.messages.length > 0) {
+    const message = result.messages.join('\n');
+    sendToPlayerWithStatus(player.id, `\n${message}`);
+  }
+
+  // Send broadcast messages to room
+  if (result.broadcastMessages.length > 0) {
+    result.broadcastMessages.forEach((msg: string) => {
+      broadcastToRoom(combat.roomId, `\n${msg}`, player.id);
+    });
+  }
+
+  // Handle combat end
+  if (result.combatEnded) {
+    if (result.endReason === 'player_died') {
+      // Drop all inventory as loot in death room
+      const deathRoomId = combat.roomId;
+      if (player.inventory && player.inventory.length > 0) {
+        player.inventory.forEach((itemId: string) => addItemToRoom(deathRoomId, itemId));
+        broadcastToRoom(deathRoomId, `\n💀 ${player.name} è morto e ha lasciato il suo inventario!`, player.id);
+      }
+
+      // Respawn player with 2 HP
+      player.currentHp = 2;
+      player.roomId = STARTING_ROOM;
+      player.inventory = []; // Clear inventory
+
+      // Send death message
+      const deathMessage = `
+💀 Sei morto! Un'entità oscura ti strappa dalla morte...
+
+✨ Ti ritrovi improvvisamente nella piazza centrale, con appena 2 HP rimasti.
+💔 Tutto ciò che avevi è stato lasciato nel luogo della tua morte...
+`;
+      sendToPlayer(player.id, deathMessage);
+
+      // Show starting room description
+      const otherPlayersInStarting = Array.from(players.values())
+        .filter((p) => p.roomId === STARTING_ROOM && p.id !== player.id)
+        .map((p) => p.name);
+      const lookResult = handleCommand(
+        parseCommand('guarda'),
+        STARTING_ROOM,
+        player.id,
+        player.name,
+        otherPlayersInStarting,
+        player.inventory,
+        player.maxWeight,
+        player.experience,
+        player.level,
+        player.equipment
+      );
+      sendToPlayerWithStatus(player.id, `\n${lookResult.message}`);
+
+      broadcastToRoom(STARTING_ROOM, `\n💀 ${player.name} respawna qui con 2 HP rimanenti!`, player.id);
+    } else if (result.endReason === 'monster_died') {
+      // Award XP and loot
+      player.experience += monster.experienceDrop;
+      monster.inventory.forEach((itemId: string) => addItemToRoom(combat.roomId, itemId));
+      trackMonsterDefeat(combat.defenderId, monster.name, combat.roomId, monster.maxHp);
+    }
+
+    // End combat
+    endCombat(combat.combatId, result.endReason || 'unknown');
+    player.activeCombatId = undefined;
   }
 }
 
@@ -486,6 +571,30 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n${result.broadcastMessage}`, playerId);
         }
+      } else if (result.type === 'combat_queue_action') {
+        // Queue an action for next combat turn
+        const combat = getPlayerCombat(playerId);
+
+        if (!combat) {
+          sendToPlayerWithStatus(playerId, '\n❌ Non sei in combattimento.');
+          return;
+        }
+
+        const queueResult = queuePlayerAction(
+          combat.combatId,
+          result.combatAction,
+          result.bonusAction
+        );
+
+        if (queueResult.success) {
+          const remainingTime = Math.ceil(getRemainingTurnTime(combat) / 1000);
+          sendToPlayerWithStatus(
+            playerId,
+            `\n✅ ${queueResult.message}\n⏱️ Esecuzione tra ${remainingTime}s...`
+          );
+        } else {
+          sendToPlayerWithStatus(playerId, `\n❌ ${queueResult.message}`);
+        }
       } else if (result.type === 'combat_start' && result.targetId && result.targetIsMonster) {
         // Start combat with a monster
         const monster = getMonsterById(result.targetId);
@@ -504,10 +613,18 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
 
           if (startResult.success && startResult.combatId) {
             player.activeCombatId = startResult.combatId;
+            const combat = getCombatSession(startResult.combatId);
 
             const msg = `⚔️ Inizia il combattimento con ${result.targetName}!\n` +
                         `💀 ${result.targetName}: ${monsterHp}/${monster.maxHp} HP\n` +
-                        `\n🎯 È il tuo turno! Usa: attacca, difenditi, fuggi`;
+                        `\n⏱️ Combattimento a turni automatici (3s per turno)\n` +
+                        `🎯 Comandi disponibili:\n` +
+                        `  • difenditi - Riduci danno del 50%\n` +
+                        `  • fuggi - Scappa dal combattimento\n` +
+                        `  • bevi <pozione> - Cura HP (azione bonus)\n` +
+                        `  • mangia <cibo> - Cura HP (azione bonus)\n` +
+                        `\n💡 Attacco automatico ogni turno se non specifichi altro!\n` +
+                        `⏳ Primo turno tra 3 secondi...`;
 
             sendToPlayerWithStatus(playerId, `\n${msg}`);
             broadcastToRoom(
@@ -518,214 +635,6 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           } else {
             sendToPlayerWithStatus(playerId, `\n❌ ${startResult.message}`);
           }
-        }
-      } else if (result.type === 'combat_attack') {
-        // Execute combat attack
-        const combat = getPlayerCombat(playerId);
-
-        if (!combat) {
-          sendToPlayerWithStatus(playerId, `\n❌ Non sei in combattimento.`);
-        } else if (!isPlayerTurn(combat, playerId)) {
-          sendToPlayerWithStatus(playerId, `\n❌ Non è il tuo turno!`);
-        } else {
-          // Calculate effective stats for damage calculation
-          const effectiveStats = calculateEffectiveStats(player.attack, player.defense, player.maxHp, player.equipment);
-
-          // Get monster stats
-          const monster = getMonsterById(combat.defenderId);
-          const monsterHp = getMonsterCurrentHp(combat.defenderId) || 0;
-
-          if (!monster) {
-            endCombat(combat.combatId, 'monster disappeared');
-            player.activeCombatId = undefined;
-            sendToPlayerWithStatus(playerId, `\n❌ Il mostro è scomparso.`);
-          } else {
-            // Calculate and apply damage
-            try {
-              executeCombatAction(combat.combatId, playerId, 'attack');
-            } catch (e) {
-              sendToPlayerWithStatus(playerId, `\n❌ ${(e as Error).message}`);
-              return;
-            }
-
-            const damage = calculateDamage(effectiveStats.attack, monster.defense, false);
-            const newMonsterHp = Math.max(0, monsterHp - damage);
-            setMonsterHp(combat.defenderId, newMonsterHp);
-
-            let msg = `⚔️ Attacchi ${monster.name}!\n` +
-                      `💥 Infliggi ${damage} danni\n` +
-                      `💀 ${monster.name}: ${newMonsterHp}/${monster.maxHp} HP`;
-
-            if (newMonsterHp <= 0) {
-              // Monster defeated
-              msg += `\n\n🎉 Hai sconfitto ${monster.name}!\n` +
-                     `⭐ +${monster.experienceDrop} XP`;
-
-              player.experience += monster.experienceDrop;
-
-              // Drop loot
-              if (monster.inventory.length > 0) {
-                const itemAddCount = monster.inventory.length;
-                msg += `\n💰 ${monster.name} ha lasciato ${itemAddCount} oggetto${itemAddCount !== 1 ? 'i' : ''}!`;
-                // Add items to room
-                monster.inventory.forEach(itemId => {
-                  addItemToRoom(player.roomId, itemId);
-                });
-              }
-
-              // Track respawn
-              trackMonsterDefeat(
-                combat.defenderId,
-                monster.name,
-                player.roomId,
-                monster.maxHp
-              );
-
-              // End combat
-              endCombat(combat.combatId, 'defender defeated');
-              player.activeCombatId = undefined;
-
-              sendToPlayerWithStatus(playerId, `\n${msg}`);
-              broadcastToRoom(
-                player.roomId,
-                `\n🎉 ${player.name} ha sconfitto ${monster.name}!`,
-                playerId
-              );
-            } else {
-              // Monster counter-attack
-              const isMonsterDefending = isOpponentDefending(combat, playerId);
-              const counterDamage = calculateDamage(
-                monster.attack,
-                effectiveStats.defense,
-                isMonsterDefending
-              );
-
-              const newPlayerHp = Math.max(0, (player.currentHp || player.maxHp) - counterDamage);
-              player.currentHp = newPlayerHp;
-
-              msg += `\n\n🔄 ${monster.name} contrattacca!\n` +
-                     `💥 Subisci ${counterDamage} danni\n` +
-                     `❤️ Tu: ${newPlayerHp}/${player.maxHp} HP`;
-
-              if (newPlayerHp <= 0) {
-                // Player defeated
-                msg += `\n\n💀 Sei stato sconfitto da ${monster.name}!\n` +
-                       `⚠️ Respawn alla piazza centrale...`;
-
-                // Respawn player
-                player.currentHp = player.maxHp;
-                player.roomId = STARTING_ROOM;
-
-                // End combat
-                endCombat(combat.combatId, 'attacker defeated');
-                player.activeCombatId = undefined;
-
-                sendToPlayerWithStatus(playerId, `\n${msg}`);
-                broadcastToRoom(
-                  STARTING_ROOM,
-                  `\n💀 ${player.name} è stato sconfitto e respawna qui!`,
-                  playerId
-                );
-              } else {
-                // Combat continues - switch turn back to player
-                switchTurn(combat);
-                msg += `\n\n🎯 È il tuo turno! Usa: attacca, difenditi, fuggi, bevi`;
-                sendToPlayerWithStatus(playerId, `\n${msg}`);
-              }
-            }
-          }
-        }
-      } else if (result.type === 'combat_defend') {
-        // Execute combat defend action
-        const combat = getPlayerCombat(playerId);
-
-        if (!combat) {
-          sendToPlayerWithStatus(playerId, `\n❌ Non sei in combattimento.`);
-        } else if (!isPlayerTurn(combat, playerId)) {
-          sendToPlayerWithStatus(playerId, `\n❌ Non è il tuo turno!`);
-        } else {
-          // Execute defend
-          try {
-            executeCombatAction(combat.combatId, playerId, 'defend');
-          } catch (e) {
-            sendToPlayerWithStatus(playerId, `\n❌ ${(e as Error).message}`);
-            return;
-          }
-
-          const monster = getMonsterById(combat.defenderId);
-          const monsterHp = getMonsterCurrentHp(combat.defenderId) || 0;
-          const effectiveStats = calculateEffectiveStats(player.attack, player.defense, player.maxHp, player.equipment);
-
-          if (!monster) {
-            endCombat(combat.combatId, 'monster disappeared');
-            player.activeCombatId = undefined;
-            sendToPlayerWithStatus(playerId, `\n❌ Il mostro è scomparso.`);
-            return;
-          }
-
-          // Monster attacks with player defending
-          const counterDamage = calculateDamage(
-            monster.attack,
-            effectiveStats.defense,
-            true // Player is defending
-          );
-
-          const newPlayerHp = Math.max(0, (player.currentHp || player.maxHp) - counterDamage);
-          player.currentHp = newPlayerHp;
-
-          let msg = `🛡️ Ti difendi!\n` +
-                    `\n🔄 ${monster.name} attacca!\n` +
-                    `💥 Subisci ${counterDamage} danni (dimezzati)\n` +
-                    `💀 ${monster.name}: ${monsterHp}/${monster.maxHp} HP\n` +
-                    `❤️ Tu: ${newPlayerHp}/${player.maxHp} HP`;
-
-          if (newPlayerHp <= 0) {
-            // Player defeated
-            msg += `\n\n💀 Sei stato sconfitto da ${monster.name}!\n` +
-                   `⚠️ Respawn alla piazza centrale...`;
-
-            player.currentHp = player.maxHp;
-            player.roomId = STARTING_ROOM;
-
-            endCombat(combat.combatId, 'attacker defeated');
-            player.activeCombatId = undefined;
-
-            sendToPlayerWithStatus(playerId, `\n${msg}`);
-            broadcastToRoom(
-              STARTING_ROOM,
-              `\n💀 ${player.name} è stato sconfitto e respawna qui!`,
-              playerId
-            );
-          } else {
-            // Combat continues - switch turn back to player
-            switchTurn(combat);
-            msg += `\n\n🎯 È il tuo turno! Usa: attacca, difenditi, fuggi, bevi`;
-            sendToPlayerWithStatus(playerId, `\n${msg}`);
-          }
-        }
-      } else if (result.type === 'combat_flee') {
-        // Flee from combat
-        const combat = getPlayerCombat(playerId);
-
-        if (!combat) {
-          sendToPlayerWithStatus(playerId, `\n❌ Non sei in combattimento.`);
-        } else {
-          const monster = getMonsterById(combat.defenderId);
-          const monsterName = monster?.name || 'il mostro';
-
-          // End combat
-          endCombat(combat.combatId, 'player fled');
-          player.activeCombatId = undefined;
-
-          sendToPlayerWithStatus(
-            playerId,
-            `\n🏃 Fuggi dal combattimento con ${monsterName}!`
-          );
-          broadcastToRoom(
-            player.roomId,
-            `\n🏃 ${player.name} fugge dal combattimento!`,
-            playerId
-          );
         }
       } else if (result.type === 'info') {
         sendToPlayerWithStatus(playerId, `\n${result.message}`);
@@ -762,6 +671,42 @@ setInterval(() => {
     console.log(`[GAME TIME] Phase changed to: ${tickResult.newPhase}`);
   }
 }, 1000);
+
+// Combat tick - process all active combats every 500ms
+setInterval(() => {
+  const combatsToProcess = getActiveCombatsForTick();
+
+  for (const combat of combatsToProcess) {
+    const player = players.get(combat.attackerId);
+    const monster = getMonsterById(combat.defenderId);
+
+    if (!player || !monster) {
+      endCombat(combat.combatId, 'entity missing');
+      continue;
+    }
+
+    // Check if monster is still alive (HP > 0)
+    const monsterHp = getMonsterCurrentHp(combat.defenderId);
+    if (!monsterHp || monsterHp <= 0) {
+      endCombat(combat.combatId, 'monster disappeared');
+      player.activeCombatId = undefined;
+      continue;
+    }
+
+    // Process the turn
+    const result = processCombatTurn(
+      combat,
+      player,
+      monster,
+      getItemById,
+      (monsterId: string) => getMonsterCurrentHp(monsterId) || 0,
+      setMonsterHp
+    );
+
+    // Handle results
+    handleCombatTurnResult(result, combat, player, monster);
+  }
+}, 500); // Check every 500ms
 
 // Respawn tick - process item and monster respawns every 5 seconds
 setInterval(() => {

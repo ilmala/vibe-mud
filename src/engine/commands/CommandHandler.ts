@@ -34,6 +34,12 @@ export interface CommandResult {
   targetName?: string; // Name of target for messages
   targetIsMonster?: boolean; // true if target is a monster
   combatAction?: 'attack' | 'defend' | 'flee'; // Type of combat action
+  // Combat queue action (for non-blocking turns)
+  bonusAction?: {
+    type: 'drink_potion' | 'eat_food';
+    itemId: string;
+    itemName: string;
+  };
 }
 
 export interface CommandHandler {

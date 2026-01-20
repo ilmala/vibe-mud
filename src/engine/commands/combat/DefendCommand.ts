@@ -20,8 +20,9 @@ export class DefendCommand implements CommandHandler {
     }
 
     return {
-      type: 'combat_defend',
+      type: 'combat_queue_action',
       combatAction: 'defend',
+      message: 'Ti difenderai nel prossimo turno!',
     };
   }
 }
