@@ -2,12 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { Player, Room, NPC, Monster } from './models';
 import { STARTING_ROOM } from './data/world';
 import { NPCS } from './data/npcs';
-import { MONSTERS } from './data/monsters';
+import { MONSTERS, getMonsterById } from './data/monsters';
 import { parseCommand } from './engine/parser';
 import { handleCommand } from './engine/gameLogic';
 import { initGameTime, tick, getPhaseChangeMessage } from './engine/gameTime';
 import { initNPCTracking } from './engine/npcs';
-import { initMonsterTracking } from './engine/monsters';
+import { initMonsterTracking, getMonsterCurrentHp, setMonsterHp } from './engine/monsters';
 import { registerItemPickup, consumeItem } from './engine/items';
 import { generateStatusBar } from './engine/utils';
 import {
@@ -25,6 +25,23 @@ import {
   trackMonsterDefeat,
   processRespawn,
 } from './engine/respawn';
+import {
+  startCombat,
+  getPlayerCombat,
+  getCombatSession,
+  executeCombatAction,
+  endCombat,
+  calculateDamage,
+  isPlayerTurn,
+  isOpponentDefending,
+  switchTurn,
+  queuePlayerAction,
+  processCombatTurn,
+  isTurnExpired,
+  getActiveCombatsForTick,
+  getRemainingTurnTime,
+} from './engine/combat';
+import { addItemToRoom } from './engine/items';
 
 const PORT = process.env.PORT || 3000;
 
@@ -106,6 +123,86 @@ function broadcastToRoom(roomId: string, message: string, excludePlayerId?: stri
 function broadcastToAll(message: string): void {
   for (const [playerId] of players.entries()) {
     sendToPlayer(playerId, message);
+  }
+}
+
+// Helper: Handle combat turn result
+function handleCombatTurnResult(
+  result: any, // CombatTurnResult
+  combat: any, // CombatSession
+  player: any, // Player
+  monster: any // Monster
+): void {
+  // Update HP
+  player.currentHp = result.playerHp;
+  setMonsterHp(combat.defenderId, result.monsterHp);
+
+  // Send messages to player
+  if (result.messages.length > 0) {
+    const message = result.messages.join('\n');
+    sendToPlayerWithStatus(player.id, `\n${message}`);
+  }
+
+  // Send broadcast messages to room
+  if (result.broadcastMessages.length > 0) {
+    result.broadcastMessages.forEach((msg: string) => {
+      broadcastToRoom(combat.roomId, `\n${msg}`, player.id);
+    });
+  }
+
+  // Handle combat end
+  if (result.combatEnded) {
+    if (result.endReason === 'player_died') {
+      // Drop all inventory as loot in death room
+      const deathRoomId = combat.roomId;
+      if (player.inventory && player.inventory.length > 0) {
+        player.inventory.forEach((itemId: string) => addItemToRoom(deathRoomId, itemId));
+        broadcastToRoom(deathRoomId, `\n💀 ${player.name} è morto e ha lasciato il suo inventario!`, player.id);
+      }
+
+      // Respawn player with 2 HP
+      player.currentHp = 2;
+      player.roomId = STARTING_ROOM;
+      player.inventory = []; // Clear inventory
+
+      // Send death message
+      const deathMessage = `
+💀 Sei morto! Un'entità oscura ti strappa dalla morte...
+
+✨ Ti ritrovi improvvisamente nella piazza centrale, con appena 2 HP rimasti.
+💔 Tutto ciò che avevi è stato lasciato nel luogo della tua morte...
+`;
+      sendToPlayer(player.id, deathMessage);
+
+      // Show starting room description
+      const otherPlayersInStarting = Array.from(players.values())
+        .filter((p) => p.roomId === STARTING_ROOM && p.id !== player.id)
+        .map((p) => p.name);
+      const lookResult = handleCommand(
+        parseCommand('guarda'),
+        STARTING_ROOM,
+        player.id,
+        player.name,
+        otherPlayersInStarting,
+        player.inventory,
+        player.maxWeight,
+        player.experience,
+        player.level,
+        player.equipment
+      );
+      sendToPlayerWithStatus(player.id, `\n${lookResult.message}`);
+
+      broadcastToRoom(STARTING_ROOM, `\n💀 ${player.name} respawna qui con 2 HP rimanenti!`, player.id);
+    } else if (result.endReason === 'monster_died') {
+      // Award XP and loot
+      player.experience += monster.experienceDrop;
+      monster.inventory.forEach((itemId: string) => addItemToRoom(combat.roomId, itemId));
+      trackMonsterDefeat(combat.defenderId, monster.name, combat.roomId, monster.maxHp);
+    }
+
+    // End combat
+    endCombat(combat.combatId, result.endReason || 'unknown');
+    player.activeCombatId = undefined;
   }
 }
 
@@ -447,9 +544,97 @@ function handleMessage(ws: BunWebSocket, message: string | Buffer): void {
           consumeItem(result.consumedItemId, { publish: (room: string, msg: string) => broadcastToRoom(room, msg) });
         }
 
-        sendToPlayerWithStatus(playerId, `\n${result.message}`);
+        // Apply healing effect if item has heal effect
+        const item = getItemById(result.consumedItemId);
+        if (item?.effect?.type === 'heal' && item.effect.value) {
+          const healAmount = item.effect.value;
+          const oldHp = player.currentHp ?? player.maxHp;
+          player.currentHp = Math.min(oldHp + healAmount, player.maxHp);
+        }
+
+        // If in combat, add combat status info
+        let message = result.message || '';
+        if (player.activeCombatId) {
+          const combat = getCombatSession(player.activeCombatId);
+          if (combat) {
+            const monster = getMonsterById(combat.defenderId);
+            const monsterHp = getMonsterCurrentHp(combat.defenderId) || 0;
+            if (monster) {
+              message += `\n\n💀 ${monster.name}: ${monsterHp}/${monster.maxHp} HP`;
+              message += `\n❤️ Tu: ${player.currentHp}/${player.maxHp} HP`;
+              message += `\n\n🎯 È il tuo turno! Usa: attacca, difenditi, fuggi, bevi`;
+            }
+          }
+        }
+
+        sendToPlayerWithStatus(playerId, `\n${message}`);
         if (result.broadcastMessage) {
           broadcastToRoom(player.roomId, `\n${result.broadcastMessage}`, playerId);
+        }
+      } else if (result.type === 'combat_queue_action') {
+        // Queue an action for next combat turn
+        const combat = getPlayerCombat(playerId);
+
+        if (!combat) {
+          sendToPlayerWithStatus(playerId, '\n❌ Non sei in combattimento.');
+          return;
+        }
+
+        const queueResult = queuePlayerAction(
+          combat.combatId,
+          result.combatAction,
+          result.bonusAction
+        );
+
+        if (queueResult.success) {
+          const remainingTime = Math.ceil(getRemainingTurnTime(combat) / 1000);
+          sendToPlayerWithStatus(
+            playerId,
+            `\n✅ ${queueResult.message}\n⏱️ Esecuzione tra ${remainingTime}s...`
+          );
+        } else {
+          sendToPlayerWithStatus(playerId, `\n❌ ${queueResult.message}`);
+        }
+      } else if (result.type === 'combat_start' && result.targetId && result.targetIsMonster) {
+        // Start combat with a monster
+        const monster = getMonsterById(result.targetId);
+        const monsterHp = getMonsterCurrentHp(result.targetId);
+
+        if (!monster || !monsterHp || monsterHp <= 0) {
+          sendToPlayerWithStatus(playerId, `\n❌ ${result.targetName || 'Il mostro'} non è più qui.`);
+        } else {
+          // Start combat
+          const startResult = startCombat(
+            playerId,
+            result.targetId,
+            true,
+            player.roomId
+          );
+
+          if (startResult.success && startResult.combatId) {
+            player.activeCombatId = startResult.combatId;
+            const combat = getCombatSession(startResult.combatId);
+
+            const msg = `⚔️ Inizia il combattimento con ${result.targetName}!\n` +
+                        `💀 ${result.targetName}: ${monsterHp}/${monster.maxHp} HP\n` +
+                        `\n⏱️ Combattimento a turni automatici (3s per turno)\n` +
+                        `🎯 Comandi disponibili:\n` +
+                        `  • difenditi - Riduci danno del 50%\n` +
+                        `  • fuggi - Scappa dal combattimento\n` +
+                        `  • bevi <pozione> - Cura HP (azione bonus)\n` +
+                        `  • mangia <cibo> - Cura HP (azione bonus)\n` +
+                        `\n💡 Attacco automatico ogni turno se non specifichi altro!\n` +
+                        `⏳ Primo turno tra 3 secondi...`;
+
+            sendToPlayerWithStatus(playerId, `\n${msg}`);
+            broadcastToRoom(
+              player.roomId,
+              `\n⚔️ ${player.name} attacca ${result.targetName}!`,
+              playerId
+            );
+          } else {
+            sendToPlayerWithStatus(playerId, `\n❌ ${startResult.message}`);
+          }
         }
       } else if (result.type === 'info') {
         sendToPlayerWithStatus(playerId, `\n${result.message}`);
@@ -486,6 +671,42 @@ setInterval(() => {
     console.log(`[GAME TIME] Phase changed to: ${tickResult.newPhase}`);
   }
 }, 1000);
+
+// Combat tick - process all active combats every 500ms
+setInterval(() => {
+  const combatsToProcess = getActiveCombatsForTick();
+
+  for (const combat of combatsToProcess) {
+    const player = players.get(combat.attackerId);
+    const monster = getMonsterById(combat.defenderId);
+
+    if (!player || !monster) {
+      endCombat(combat.combatId, 'entity missing');
+      continue;
+    }
+
+    // Check if monster is still alive (HP > 0)
+    const monsterHp = getMonsterCurrentHp(combat.defenderId);
+    if (!monsterHp || monsterHp <= 0) {
+      endCombat(combat.combatId, 'monster disappeared');
+      player.activeCombatId = undefined;
+      continue;
+    }
+
+    // Process the turn
+    const result = processCombatTurn(
+      combat,
+      player,
+      monster,
+      getItemById,
+      (monsterId: string) => getMonsterCurrentHp(monsterId) || 0,
+      setMonsterHp
+    );
+
+    // Handle results
+    handleCombatTurnResult(result, combat, player, monster);
+  }
+}, 500); // Check every 500ms
 
 // Respawn tick - process item and monster respawns every 5 seconds
 setInterval(() => {
@@ -533,6 +754,7 @@ const server: any = Bun.serve({
         attack: 10,
         defense: 5,
         equipment: {},
+        activeCombatId: undefined,
       };
 
       players.set(playerId, player);
@@ -553,6 +775,12 @@ const server: any = Bun.serve({
       if (player) {
         console.log(`[${playerId}] ${player.name} si è disconnesso`);
         broadcastToRoom(player.roomId, `\n[${player.name} se ne è andato]`);
+
+        // End any active combat session
+        if (player.activeCombatId) {
+          endCombat(player.activeCombatId, 'player disconnected');
+        }
+
         players.delete(playerId);
       }
 

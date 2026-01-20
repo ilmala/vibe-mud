@@ -1,5 +1,6 @@
 import { CommandHandler, CommandContext, CommandResult } from '../CommandHandler';
 import { getItemById } from '../../../data/items';
+import { getPlayerCombat } from '../../combat';
 
 export class BeviCommand implements CommandHandler {
   name = 'bevi';
@@ -39,7 +40,21 @@ export class BeviCommand implements CommandHandler {
       };
     }
 
-    // Get effect message
+    // Check if in combat - queue as bonus action
+    const combat = getPlayerCombat(context.playerId);
+    if (combat) {
+      return {
+        type: 'combat_queue_action',
+        bonusAction: {
+          type: 'drink_potion',
+          itemId,
+          itemName: item.name,
+        },
+        message: `Berrai ${item.name} nel prossimo turno!`,
+      };
+    }
+
+    // Out of combat - execute immediately
     const effectMsg = item.effect?.message || 'Ti senti rinvigorito!';
 
     return {
